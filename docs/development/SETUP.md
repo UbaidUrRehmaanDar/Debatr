@@ -8,9 +8,9 @@ The repository is currently documentation-first; the application workspace must 
 
 - Current supported Node.js LTS version, recorded in the repository once selected.
 - `pnpm` as the workspace package manager.
-- A PostgreSQL development database or approved Neon development branch.
-- Environment variables described in [ENVIRONMENT.md](ENVIRONMENT.md).
-- An approved AI provider account/key for local AI integration tests only.
+- A Neon PostgreSQL development branch or local PostgreSQL instance with Drizzle migrations applied.
+- Environment variables described in [ENVIRONMENT.md](ENVIRONMENT.md), including a server-side `OPENCODE_API_KEY` for local AI integration tests only.
+- An OpenCode Zen account/key for local AI integration tests only.
 
 ## Expected workflow
 

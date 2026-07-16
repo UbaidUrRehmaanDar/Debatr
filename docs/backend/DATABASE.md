@@ -2,7 +2,7 @@
 
 ## Role
 
-PostgreSQL is the source of truth. It stores durable product state; WebSocket connections, AI provider responses, and browser state are not authoritative.
+PostgreSQL (Neon) is the source of truth, accessed through Drizzle ORM. It stores durable product state; WebSocket connections, AI provider responses, and browser state are not authoritative. Connection details come from the server-side `DATABASE_URL` and are never committed or sent to the browser.
 
 ## Initial entities
 

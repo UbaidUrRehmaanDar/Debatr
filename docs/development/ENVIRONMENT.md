@@ -10,8 +10,8 @@ Environment configuration contains deployment-specific values and secrets. It is
 | --- | --- | --- |
 | Application | environment name, API origin, web origin, log level | no secrets unless required |
 | Database | PostgreSQL connection URL | server only |
-| Authentication | provider secret, trusted origins, session settings | provider not yet selected |
-| AI provider | API key, API base URL, Lawyer/Judge model identifiers | server only; never load in browser |
+| Authentication | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, trusted origins, session settings | Better Auth selected; secret server only |
+| AI provider | `OPENCODE_API_KEY`, `OPENCODE_BASE_URL`, `AI_LAWYER_MODEL`, `AI_JUDGE_MODEL` | server only; never load in browser |
 | AI controls | token budgets, timeouts, retry limits, enabled roles | validate ranges at startup |
 | Storage | endpoint, bucket, access credentials | only when uploads are enabled |
 | Observability | error reporting/logging credentials | minimise personal data |

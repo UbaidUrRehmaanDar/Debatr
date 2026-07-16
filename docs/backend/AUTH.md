@@ -1,12 +1,12 @@
 # Authentication and authorisation
 
-## Status
+## Selected approach
 
-The exact authentication provider and methods are not yet selected. Better Auth is a candidate from the earlier vision, not a final decision. Authentication must be resolved before implementation begins.
+Debatr uses Better Auth with email-and-password authentication, required email verification, password reset by email, secure HTTP-only sessions, and invitation-only registration. Magic links, social sign-in (Google, GitHub, or others), and public self-registration are explicitly excluded from the initial release. Secrets such as `BETTER_AUTH_SECRET` remain server-side and are never committed or exposed to the browser.
 
 ## Initial access model
 
-Debatr is private and limited to approximately ten users. Access should therefore be allow-listed or invitation-only. A user must not be able to create a public account simply by discovering the application URL.
+Debatr is private and limited to approximately ten users. Access is invitation-only. A user must not be able to create an account simply by discovering the application URL.
 
 ## Authorisation rules
 
@@ -22,8 +22,8 @@ Every protected server route and WebSocket subscription must perform an authoris
 
 ## Session requirements
 
-Use secure, HTTP-only session cookies or an equivalently secure mechanism appropriate to the final provider. Protect state-changing requests against CSRF where cookies are used. Rotate/revoke sessions when required by the chosen provider and never log raw tokens.
+Use Better Auth’s secure, HTTP-only session cookies. Protect state-changing requests against CSRF where cookies are used. Rotate/revoke sessions according to Better Auth configuration and never log raw tokens.
 
-## Decisions required
+## Remaining implementation decisions
 
-Choose the sign-in method (email/password, magic link, invited OAuth identity, or another approach), initial administrator bootstrap method, invitation expiry, session duration, recovery process, and account deletion policy.
+Define the initial administrator bootstrap method, invitation expiry, session duration, the email service used for verification and password-reset messages, and the account-deletion policy. These details do not change the selected authentication method.

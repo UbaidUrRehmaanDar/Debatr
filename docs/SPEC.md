@@ -22,7 +22,7 @@ Exceptional transitions are `active → paused`, `paused → active`, and `waiti
 
 - Debates are turn-based; only the participant with the current turn can submit a debate message.
 - A participant cannot interrupt directly. They may raise a hand to request an opportunity to speak; the judge-controlled debate flow decides whether and when that request is granted.
-- Each turn has a time limit and a character limit. The initial recommended character limit is 2,000 characters; the final defaults remain configurable policy.
+- Each turn has a time limit and a character limit. The confirmed initial defaults are four rounds, five minutes per turn, and a maximum of 2,000 public-message characters per turn. All defaults remain centrally configurable and are snapshotted into a debate when it starts.
 - Participants may consult their private Lawyer without exposing that consultation to their opponent.
 - Lawyer replies are delivered as complete responses, not token-by-token streams.
 

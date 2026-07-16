@@ -37,7 +37,7 @@ The AI service loads version-controlled runtime prompts, builds bounded context,
 
 ## AI provider boundary
 
-Application code uses an internal provider interface rather than a provider SDK directly. The initial provider is chosen for free-tier suitability and compatible API access; Lawyers and Judges use separately configured models. Users cannot choose models.
+Application code uses an internal provider interface rather than a provider SDK directly. The initial provider is OpenCode Zen, called directly through the provider adapter using `OPENCODE_API_KEY`; it is chosen for acceptable privacy/retention terms and compatible API access, not for free-tier suitability. Lawyers and Judges use separately configured models (model IDs confirmed after evaluation). Users cannot choose models.
 
 ## Explicitly excluded infrastructure
 

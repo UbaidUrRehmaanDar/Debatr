@@ -13,7 +13,7 @@ flowchart LR
   ORCH --> CONTEXT[Context builder]
   ORCH --> ROUTER[Model routing policy]
   ROUTER --> ADAPTER[Provider adapter]
-  ADAPTER --> PROVIDER[Chosen AI provider]
+  ADAPTER --> PROVIDER[OpenCode Zen]
   PROVIDER --> VALIDATE[Schema validation and repair policy]
   VALIDATE --> API
   API --> DB[(PostgreSQL audit metadata)]
@@ -26,7 +26,7 @@ flowchart LR
 3. It loads the applicable prompt layers from `prompts/`.
 4. The context builder creates the smallest sufficient context.
 5. The routing policy selects the configured model for that role.
-6. The provider adapter performs the provider-specific request.
+6. The provider adapter performs the provider-specific request to OpenCode Zen using server-side configuration (`OPENCODE_API_KEY`, `OPENCODE_BASE_URL`). It never loads provider credentials in the browser.
 7. The server validates the response against its contract.
 8. The server stores only the appropriate result and metadata, then returns it to the authorised client.
 

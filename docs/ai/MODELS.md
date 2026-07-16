@@ -19,15 +19,16 @@ This lets the team change providers or models when availability, limits, price, 
 
 ## Initial provider selection
 
-The initial provider and model identifiers are not yet decided. They must be chosen only after confirming:
+The provider is decided: OpenCode Zen, called directly through the internal provider adapter using `OPENCODE_API_KEY` (no OpenRouter or other proxy). A small provider adapter remains so a provider can change later, but OpenCode Zen is the only configured provider at launch.
 
-- that the provider’s acceptable-use policy permits this non-coding, debate-coaching use;
-- API stability, privacy terms, and data-retention policy;
-- structured JSON support and context-window limits;
-- usable free-tier/request limits for the ten-user scope; and
-- satisfactory tests on neutral reasoning, refusal behaviour, and citation integrity.
+The exact Lawyer and Judge model IDs are not yet chosen. They must be confirmed only after a non-production evaluation that verifies:
 
-Record the selected provider and models in `docs/DECISIONS.md` once confirmed. Do not embed API keys or model IDs in prompts or documentation.
+- reliable structured JSON output and prompt adherence;
+- sufficient context-window capacity for the assigned role;
+- acceptable privacy and data-retention terms; and
+- that the chosen model is not a free tier whose terms allow private debate data to be retained or used for training/improvement.
+
+Record the selected model IDs in `docs/DECISIONS.md` once confirmed. Do not embed API keys or model IDs in prompts or documentation; `AI_LAWYER_MODEL` and `AI_JUDGE_MODEL` are server-side configuration only.
 
 ## Configuration policy
 
