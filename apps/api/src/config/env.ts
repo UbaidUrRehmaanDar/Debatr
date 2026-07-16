@@ -15,8 +15,9 @@ const envSchema = z.object({
   // OpenCode Zen AI Provider
   OPENCODE_API_KEY: z.string().min(1),
   OPENCODE_BASE_URL: z.string().url(),
-  AI_LAWYER_MODEL: z.string().min(1),
-  AI_JUDGE_MODEL: z.string().min(1),
+  // Model IDs are chosen after evaluation; optional until then (see D-011).
+  AI_LAWYER_MODEL: z.string().optional(),
+  AI_JUDGE_MODEL: z.string().optional(),
   
   // AI usage limits and timeouts
   AI_MAX_TOKENS_PER_REQUEST: z.string().transform(Number).default('4096'),
@@ -92,11 +93,11 @@ class Config {
     return this.config!.OPENCODE_BASE_URL;
   }
   
-  get aiLawyerModel(): string {
+  get aiLawyerModel(): string | undefined {
     return this.config!.AI_LAWYER_MODEL;
   }
   
-  get aiJudgeModel(): string {
+  get aiJudgeModel(): string | undefined {
     return this.config!.AI_JUDGE_MODEL;
   }
   
