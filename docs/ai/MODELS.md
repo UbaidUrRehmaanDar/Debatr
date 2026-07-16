@@ -1,8 +1,12 @@
 # Models and providers
 
+## Status
+
+**Resolved:** Provider and model selection strategy confirmed. See D-011 in `docs/DECISIONS.md`.
+
 ## Confirmed strategy
 
-Debatr will use separate model tiers:
+Debatr uses separate model tiers:
 
 | Role | Required qualities | Cost posture |
 | --- | --- | --- |
@@ -11,23 +15,41 @@ Debatr will use separate model tiers:
 
 Users do not select models. Central configuration assigns one model per role, which keeps the experience consistent and avoids accidental cost increases.
 
+## Selected provider
+
+**OpenCode Zen** is the initial AI provider, accessed directly via API (not through OpenRouter or other intermediaries).
+
+Model selection (to be confirmed after local evaluation):
+- **Lawyer:** OpenCode Zen's cheap/fast model
+- **Judge:** OpenCode Zen's stronger reasoning model
+
+Before enabling a model, verify:
+- Structured JSON is reliable with our Lawyer and Judge schemas
+- The model follows prompt constraints
+- Its context window is sufficient for debate transcripts
+- Its privacy/retention terms are suitable for private debate transcripts
+
 ## Provider abstraction
 
-The application owns an interface similar to: request completion, request structured output, expose usage metadata, and normalise errors. A provider adapter handles API URLs, authentication, model identifiers, and provider-specific response shapes.
+The application owns an interface with:
+- Request completion
+- Request structured output
+- Expose usage metadata
+- Normalise errors
 
-This lets the team change providers or models when availability, limits, price, or quality changes, without rewriting debate rules or user-interface code.
+A provider adapter handles API URLs, authentication, model identifiers, and provider-specific response shapes. This lets the team change providers or models when availability, limits, price, or quality changes, without rewriting debate logic or user-interface code.
 
-## Initial provider selection
+At launch, the adapter is configured only for OpenCode Zen.
 
-The initial provider and model identifiers are not yet decided. They must be chosen only after confirming:
+## Cost and safety controls
 
-- that the provider’s acceptable-use policy permits this non-coding, debate-coaching use;
-- API stability, privacy terms, and data-retention policy;
-- structured JSON support and context-window limits;
-- usable free-tier/request limits for the ten-user scope; and
-- satisfactory tests on neutral reasoning, refusal behaviour, and citation integrity.
+OpenCode Zen is not assumed to be free. The following controls are enforced from day one:
 
-Record the selected provider and models in `docs/DECISIONS.md` once confirmed. Do not embed API keys or model IDs in prompts or documentation.
+- Per-request token limits
+- Per-debate AI usage limits
+- Request timeouts
+- Retry limits
+- Usage logging (without exposing sensitive data)
 
 ## Configuration policy
 

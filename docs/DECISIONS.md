@@ -53,3 +53,48 @@ Grammar and language fluency do not influence judging. Logic, evidence, rebuttal
 **Status:** accepted
 
 Runtime instructions belong under `prompts/`, not hard-coded inside application logic. They use a layered constitution, role, safety, rules, and output-schema approach.
+
+## D-010 — Authentication method: email/password with invitation-only access
+
+**Status:** accepted
+
+Authentication uses Better Auth with:
+- Email and password sign-up/sign-in
+- Required email verification
+- Password-reset by email
+- Secure HTTP-only session cookies
+- Invitation-only registration (no public self-registration)
+- Only administrators may create/send invitations
+- No magic links or social login providers in the first release
+
+## D-011 — AI Provider: OpenCode Zen
+
+**Status:** accepted
+
+The initial AI provider is OpenCode Zen, accessed directly via API:
+- Lawyer: OpenCode Zen's cheap/fast model (selected after local evaluation)
+- Judge: OpenCode Zen's stronger reasoning model (selected after local evaluation)
+- Provider adapter kept minimal, configured only for OpenCode Zen at launch
+- Per-request token limits, per-debate AI limits, timeouts, and usage logging enforced from day one
+- Models verified for: reliable JSON output, prompt constraint adherence, sufficient context window, and suitable privacy/retention terms
+
+## D-012 — Default debate settings
+
+**Status:** accepted
+
+Default configuration:
+- 4 rounds per debate
+- 5 minutes per turn
+- 2,000-character maximum per public message
+
+Settings are centrally configurable via server configuration and snapshot into each debate at creation, ensuring future changes do not alter existing debates.
+
+## D-013 — Database: Neon PostgreSQL with Drizzle ORM
+
+**Status:** accepted
+
+Database stack:
+- Neon PostgreSQL (separate branches for development and production)
+- Drizzle ORM for type-safe database access
+- PostgreSQL is the single source of truth for all data
+- No Redis, queues, microservices, Kubernetes, or scaling infrastructure
