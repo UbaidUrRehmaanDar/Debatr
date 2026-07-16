@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { config } from '../config/env.js';
+import { sendEmail } from '../email/index.js';
 
 // Typed loosely: Better Auth 1.6's generic return type is incompatible with the
 // inferred options object, and the db instance is nullable until connect() runs.
@@ -12,25 +13,42 @@ export async function init() {
   if (authInstance) {
     return authInstance;
   }
-  
+
   authInstance = betterAuth({
     database: drizzleAdapter(db!, {
       provider: 'pg',
       schema: {
         user: schema.users,
-        session: schema.sessions, // We'll create this if needed
-        account: schema.accounts, // We'll create this if needed
-        verification: schema.verifications, // We'll create this if needed
+        session: schema.sessions,
+        account: schema.accounts,
+        verification: schema.verifications,
       },
     }),
     emailAndPassword: {
       enabled: true,
-      // Dev note: set to true once an email sender is wired up. Left false so
-      // local signup works without an SMTP/email provider (see D-010).
-      requireEmailVerification: false,
+      // Email verification is now wired via Resend (see D-010). Users must
+      // verify before fully participating; signup still succeeds, verification
+      // email is sent automatically.
+      requireEmailVerification: true,
+      sendResetPassword: async ({ user, url, token }, request) => {
+        await sendEmail({
+          to: user.email,
+          subject: 'Reset your Debatr password',
+          text: `Reset your Debatr password using the link below. It expires soon:\n\n${url}`,
+          html: `<p>Reset your Debatr password using the link below. It expires soon:</p><p><a href="${url}">${url}</a></p>`,
+        });
+      },
     },
     emailVerification: {
-      sendOnSignUp: false,
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url, token }, request) => {
+        await sendEmail({
+          to: user.email,
+          subject: 'Verify your Debatr email',
+          text: `Welcome to Debatr. Verify your email to activate your account:\n\n${url}`,
+          html: `<p>Welcome to Debatr. Verify your email to activate your account:</p><p><a href="${url}">${url}</a></p>`,
+        });
+      },
     },
     session: {
       cookieCache: {
@@ -40,7 +58,7 @@ export async function init() {
     },
     trustedOrigins: [config.webOrigin],
   });
-  
+
   return authInstance;
 }
 

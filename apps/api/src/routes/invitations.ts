@@ -4,6 +4,8 @@ import { getDb } from '../db/index.js';
 import { users, invitations } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { sendEmail } from '../email/index.js';
+import { config } from '../config/env.js';
 
 interface CreateInvitationBody {
   email: string;
@@ -55,6 +57,19 @@ export async function registerInvitationRoutes(fastify: FastifyInstance) {
       createdBy: admin.id as any,
       expiresAt,
     }).returning();
+
+    const signupUrl = `${config.webOrigin}/signup?code=${code}`;
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'You are invited to Debatr',
+        text: `You have been invited to join Debatr. Use the link below to create your account (code: ${code}):\n\n${signupUrl}`,
+        html: `<p>You have been invited to join Debatr.</p><p>Use this code to sign up: <strong>${code}</strong></p><p><a href="${signupUrl}">${signupUrl}</a></p>`,
+      });
+    } catch (emailError) {
+      // Don't fail the invitation if the email send fails; surface a warning.
+      fastify.log.error('Invitation email failed: ' + (emailError as Error).message);
+    }
 
     return reply.status(201).send(invitation);
   });

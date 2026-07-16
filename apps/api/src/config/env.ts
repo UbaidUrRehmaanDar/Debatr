@@ -33,6 +33,10 @@ const envSchema = z.object({
   // Model IDs are chosen after evaluation; optional until then (see D-011).
   AI_LAWYER_MODEL: z.string().optional(),
   AI_JUDGE_MODEL: z.string().optional(),
+
+  // Email service (Resend)
+  RESEND_API_KEY: z.string().min(1),
+  EMAIL_FROM: z.string().min(1),
   
   // AI usage limits and timeouts
   AI_MAX_TOKENS_PER_REQUEST: z.string().transform(Number).default('4096'),
@@ -130,6 +134,14 @@ class Config {
   
   get aiMaxRetries(): number {
     return this.config!.AI_MAX_RETRIES;
+  }
+
+  get resendApiKey(): string {
+    return this.config!.RESEND_API_KEY;
+  }
+
+  get emailFrom(): string {
+    return this.config!.EMAIL_FROM;
   }
   
   get debateDefaultRounds(): number {
