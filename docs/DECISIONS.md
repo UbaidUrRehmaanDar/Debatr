@@ -54,28 +54,48 @@ Grammar and language fluency do not influence judging. Logic, evidence, rebuttal
 
 Runtime instructions belong under `prompts/`, not hard-coded inside application logic. They use a layered constitution, role, safety, rules, and output-schema approach.
 
-## D-010 — Better Auth with verified email and password
+## D-010 — Authentication method: email/password with invitation-only access
 
 **Status:** accepted
 
-Debatr will use Better Auth with email-and-password sign-in, required email verification, password reset by email, secure HTTP-only sessions, and invitation-only registration. Magic links, social sign-in, and public self-registration are not part of the initial release.
+Authentication uses Better Auth with:
+- Email and password sign-up/sign-in
+- Required email verification
+- Password-reset by email
+- Secure HTTP-only session cookies
+- Invitation-only registration (no public self-registration)
+- Only administrators may create/send invitations
+- No magic links or social login providers (Google, GitHub, or others) in the first release
 
-## D-011 — OpenCode Zen is the initial AI provider
-
-**Status:** accepted
-
-The application calls OpenCode Zen directly using `OPENCODE_API_KEY` (no OpenRouter or other proxy). A small provider adapter remains so a provider can change later, but OpenCode Zen is the only configured provider at launch.
-
-Exact Lawyer and Judge model IDs are not chosen yet. They require a non-production evaluation that confirms: reliable structured JSON, prompt adherence, sufficient context capacity, and acceptable privacy/retention terms. Do not use a free model whose terms allow private debate data to be retained or used for training/improvement.
-
-## D-012 — Initial debate defaults
-
-**Status:** accepted
-
-New debates default to four rounds, five minutes per turn, and a maximum of 2,000 public-message characters per turn. These settings remain centrally configurable and are snapshotted at debate start.
-
-## D-013 — Neon PostgreSQL with Drizzle ORM
+## D-011 — AI Provider: OpenCode Zen
 
 **Status:** accepted
 
-Debatr will use Neon PostgreSQL, with separate development and production databases or branches. Drizzle ORM is the data-access and migration tool; migrations are reviewed and version-controlled, and must not auto-apply destructive production changes.
+The initial AI provider is OpenCode Zen, called directly using `OPENCODE_API_KEY` (no OpenRouter or other proxy):
+- Lawyer: OpenCode Zen's cheap/fast model (selected after local evaluation)
+- Judge: OpenCode Zen's stronger reasoning model (selected after local evaluation)
+- Provider adapter kept minimal, configured only for OpenCode Zen at launch
+- Per-request token limits, per-debate AI limits, timeouts, and usage logging enforced from day one
+- Models verified for: reliable JSON output, prompt constraint adherence, sufficient context window, and suitable privacy/retention terms
+- Do not use a free model whose terms allow private debate data to be retained or used for training/improvement
+
+## D-012 — Default debate settings
+
+**Status:** accepted
+
+Default configuration:
+- 4 rounds per debate
+- 5 minutes per turn
+- 2,000-character maximum per public message
+
+Settings are centrally configurable via server configuration and snapshot into each debate at creation, ensuring future changes do not alter existing debates.
+
+## D-013 — Database: Neon PostgreSQL with Drizzle ORM
+
+**Status:** accepted
+
+Database stack:
+- Neon PostgreSQL (separate branches for development and production)
+- Drizzle ORM for type-safe database access; migrations are reviewed and version-controlled and must not auto-apply destructive production changes
+- PostgreSQL is the single source of truth for all data
+- No Redis, queues, microservices, Kubernetes, or scaling infrastructure

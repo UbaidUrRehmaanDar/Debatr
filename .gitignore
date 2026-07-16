@@ -6,21 +6,41 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+**/node_modules/
 
-# Build output
+# Build outputs
 dist/
 build/
 .svelte-kit/
+.next/
+.nuxt/
+out/
+public/build/
+.svelte-kit/
+
+# Cache directories
+.cache/
+.vite/
+.vercel/
+.nyc_output/
+coverage/
 
 # Logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# OS / editor
+# OS generated files
 .DS_Store
-.idea/
+Thumbs.db
+
+# IDE specific
 .vscode/
+.idea/
+*.swp
+*.swo
 
 # Exports containing private data
 *.debate-export.json
