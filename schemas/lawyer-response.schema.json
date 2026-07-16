@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/lawyer-response.schema.json",
+  "title": "LawyerResponse",
+  "description": "Private, structured coaching returned to one debate participant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assistanceType", "advice", "uncertainty", "evidenceSuggestions"],
+  "properties": {
+    "assistanceType": { "type": "string", "enum": ["supporting_argument", "rebuttal", "counterargument", "clarity_improvement", "weakness_identification", "evidence_suggestion", "summary", "safe_refusal"] },
+    "advice": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "uncertainty": { "type": "string", "maxLength": 1200 },
+    "evidenceSuggestions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "verificationNeeded"],
+        "properties": {
+          "claim": { "type": "string", "maxLength": 800 },
+          "verificationNeeded": { "type": "string", "maxLength": 800 },
+          "providedSourceMessageId": { "type": "string", "format": "uuid" }
+        }
+      }
+    },
+    "referencedMessageIds": { "type": "array", "maxItems": 10, "items": { "type": "string", "format": "uuid" } },
+    "conductConcern": { "type": "string", "enum": ["none", "possible_harassment", "possible_threat", "possible_hate", "possible_harm", "other"] }
+  }
+}

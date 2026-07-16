@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/websocket.schema.json",
+  "title": "DebateWebSocketEvent",
+  "description": "Authoritative or ephemeral realtime event for an authorised debate subscription.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "debateId", "eventVersion", "payload", "timestamp"],
+  "properties": {
+    "type": { "type": "string", "enum": ["debate_state", "message_created", "timer_updated", "presence_changed", "typing_changed", "raise_hand_requested", "raise_hand_decided", "error"] },
+    "debateId": { "type": "string", "format": "uuid" },
+    "eventVersion": { "type": "integer", "minimum": 0 },
+    "payload": { "type": "object" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "MessagePayload": {
+      "type": "object", "additionalProperties": false, "required": ["messageId", "side", "content", "createdAt"],
+      "properties": { "messageId": { "type": "string", "format": "uuid" }, "side": { "type": "string", "enum": ["affirmative", "negative"] }, "content": { "type": "string", "maxLength": 2000 }, "createdAt": { "type": "string", "format": "date-time" } }
+    },
+    "ErrorPayload": {
+      "type": "object", "additionalProperties": false, "required": ["code", "message"],
+      "properties": { "code": { "type": "string", "maxLength": 100 }, "message": { "type": "string", "maxLength": 500 } }
+    }
+  }
+}

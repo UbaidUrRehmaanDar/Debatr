@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/debate-export.schema.json",
+  "title": "DebateExport",
+  "description": "Portable export of a debate including its public transcript and an optional completed Judge report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "debate", "exportedAt"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema/export format version.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "debate": {
+      "$ref": "debate.schema.json"
+    },
+    "judgeReport": {
+      "$ref": "judge-response.schema.json"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "const": "debatr" },
+        "exporter": { "type": "string", "format": "uuid" },
+        "format": { "type": "string", "const": "json" }
+      }
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

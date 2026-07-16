@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/debate.schema.json",
+  "title": "Debate",
+  "description": "Core private, turn-based debate between two participants.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "topic", "status", "participants", "rounds", "createdAt", "updatedAt"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "topic": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "status": { "type": "string", "enum": ["draft", "waiting_for_participants", "active", "paused", "judging", "completed", "cancelled"] },
+    "participants": {
+      "type": "object", "additionalProperties": false, "required": ["affirmative", "negative"],
+      "properties": { "affirmative": { "$ref": "#/$defs/Participant" }, "negative": { "$ref": "#/$defs/Participant" } }
+    },
+    "rounds": { "type": "array", "items": { "$ref": "#/$defs/Round" } },
+    "currentRound": { "type": "integer", "minimum": 0 },
+    "currentTurnId": { "type": "string", "format": "uuid" },
+    "settings": { "$ref": "#/$defs/DebateSettings" },
+    "judgeReportId": { "type": "string", "format": "uuid" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "Participant": {
+      "type": "object", "additionalProperties": false, "required": ["userId", "side"],
+      "properties": { "userId": { "type": "string", "format": "uuid" }, "displayName": { "type": "string", "maxLength": 120 }, "side": { "type": "string", "enum": ["affirmative", "negative"] }, "joinedAt": { "type": "string", "format": "date-time" } }
+    },
+    "Round": {
+      "type": "object", "additionalProperties": false, "required": ["index", "messages"],
+      "properties": { "index": { "type": "integer", "minimum": 0 }, "name": { "type": "string", "maxLength": 120 }, "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } }
+    },
+    "Message": {
+      "type": "object", "additionalProperties": false, "required": ["id", "senderId", "side", "content", "createdAt"],
+      "properties": { "id": { "type": "string", "format": "uuid" }, "senderId": { "type": "string", "format": "uuid" }, "side": { "type": "string", "enum": ["affirmative", "negative", "system"] }, "content": { "type": "string", "minLength": 1, "maxLength": 2000 }, "createdAt": { "type": "string", "format": "date-time" } }
+    },
+    "DebateSettings": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "maxRounds": { "type": "integer", "minimum": 1 }, "roundDurationMs": { "type": "integer", "minimum": 0 }, "maxCharactersPerTurn": { "type": "integer", "minimum": 1, "maximum": 2000 }, "allowSpectators": { "type": "boolean", "const": false }, "requireEvidence": { "type": "boolean" }, "rulesVersion": { "type": "string", "minLength": 1 } }
+    }
+  }
+}
