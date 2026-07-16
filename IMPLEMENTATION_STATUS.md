@@ -78,25 +78,56 @@ pnpm install
 
 ### 4. Run Database Migrations
 ```bash
-pnpm db:push
+pnpm db:generate   # generates SQL from schema (already done; re-run after schema changes)
+pnpm db:migrate    # applies migrations to DATABASE_URL
 ```
+> Note: `db:generate`/`db:migrate` require `drizzle-orm` 0.45 + `drizzle-kit` 0.31.4 (aligned with
+> `better-auth` 1.6 peers). `migrate.ts` loads `.env` from the repo root automatically.
 
 ### 5. Create First Admin User
-You'll need to either:
-- **Option A**: Create a CLI script to bootstrap the first admin
-- **Option B**: Manually insert via Neon SQL editor:
-```sql
-INSERT INTO users (email, name, role, email_verified) 
-VALUES ('your-email@example.com', 'Your Name', 'admin', true);
+Use the bootstrap endpoint (creates a real, loginable admin with a hashed password):
+```bash
+curl -X POST http://localhost:3000/api/admin/bootstrap \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"strongpass","name":"Admin"}'
 ```
-Then set up password via Better Auth's password reset flow.
+This only works when zero users exist. (The old bare `INSERT INTO users` approach does NOT
+produce a loginable account because Better Auth needs a password hash in the `accounts` table.)
 
-### 6. Create Invitations
-After admin user exists, you'll need an endpoint or script to create invitations for other users.
+### 6. Create Invitations (admin only)
+```bash
+curl -X POST http://localhost:3000/api/invitations \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"friend@example.com","expiresInDays":7}'
+```
+
+## 📋 Implemented vs Remaining
+
+### Implemented (this branch + follow-up)
+- Environment validation + `.env` loading from repo root
+- Drizzle schema with Better Auth tables (`sessions`, `accounts`, `verifications`);
+  `users.id` is `text` (Better Auth generates string IDs)
+- `pnpm db:generate` / `pnpm db:migrate`
+- Auth routes: signup (invitation-only), signin, signout, me, forgot/reset password
+- Admin bootstrap endpoint (`/api/admin/bootstrap`)
+- Invitation routes (admin create/list)
+- Debate routes: list, create, get, message submit, lawyer request, judge trigger
+- WebSocket stub (`/api/ws`)
+- AI provider adapter (OpenCode Zen) + Lawyer/Judge services; **gated on model config**
+  (returns a clear error until `AI_LAWYER_MODEL`/`AI_JUDGE_MODEL` are set after a
+  privacy-reviewed evaluation — see D-011; free models that retain/train on data are not used)
+
+### Remaining
+- Email sender for verification/password-reset (currently `requireEmailVerification: false`
+  for local dev; wire a provider before production)
+- Real-time debate event fan-out (WebSocket is a stub)
+- Turn state machine, raise-hand flow, timeouts
+- SvelteKit frontend (login/UI/debate interface)
+- `AI_LAWYER_MODEL` / `AI_JUDGE_MODEL` selection after evaluation
 
 ## 📋 Next Implementation Phases
 
-### Phase 2 - API Routes (Not Yet Implemented)
+### Phase 2 - API Routes (Implemented)
 - POST `/api/auth/signup` - Registration with invitation code
 - POST `/api/auth/signin` - Email/password login
 - POST `/api/auth/signout` - Logout

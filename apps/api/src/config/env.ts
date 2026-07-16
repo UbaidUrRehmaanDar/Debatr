@@ -1,4 +1,19 @@
 import { z } from 'zod';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// Load .env from the app dir or repo root (pnpm --filter runs from apps/api,
+// but .env lives at the repo root). Mirrors the loader in db/migrate.ts.
+for (const candidate of [resolve(process.cwd(), '.env'), resolve(process.cwd(), '..', '..', '.env')]) {
+  if (existsSync(candidate)) {
+    try {
+      process.loadEnvFile(candidate);
+    } catch {
+      // ignore parse errors
+    }
+    break;
+  }
+}
 
 const envSchema = z.object({
   // Database

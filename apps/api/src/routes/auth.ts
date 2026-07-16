@@ -16,6 +16,18 @@ interface SignInBody {
   password: string;
 }
 
+// Better Auth sets the session cookie on its response object. Forward any
+// Set-Cookie headers it produced onto the Fastify reply so the browser keeps
+// the session.
+function forwardAuthCookies(result: any, reply: FastifyReply) {
+  const headers: Headers | undefined = result?.response?.headers;
+  if (!headers) return;
+  const setCookie = headers.get('set-cookie');
+  if (setCookie) {
+    reply.header('set-cookie', setCookie);
+  }
+}
+
 export async function registerAuthRoutes(fastify: FastifyInstance) {
   // Sign up with invitation code
   fastify.post('/api/auth/signup', async (request: FastifyRequest<{ Body: SignUpBody }>, reply: FastifyReply) => {
@@ -44,40 +56,33 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     }
     
     const auth = getAuth();
-    
+
     try {
       // Create user via Better Auth
-      const result = await auth.api.signUpEmail({
+      const result: any = await auth.api.signUpEmail({
         body: {
           email,
           password,
           name,
         },
+        headers: request.headers as any,
       });
-      
-      if (!result.user) {
+
+      if (!result?.user) {
         return reply.status(400).send({ error: 'Failed to create user' });
       }
-      
+
       // Mark invitation as used
       await db.update(invitations)
-        .set({ 
+        .set({
           usedBy: result.user.id,
           usedAt: new Date(),
         })
         .where(eq(invitations.id, invitation.id));
-      
-      // Set session cookie
-      if (result.session) {
-        reply.setCookie('auth-session', result.session.token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 7, // 7 days
-        });
-      }
-      
+
+      // Forward Better Auth's session Set-Cookie header if present
+      forwardAuthCookies(result, reply);
+
       return reply.status(201).send({
         user: {
           id: result.user.id,
@@ -85,10 +90,10 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
           name: result.user.name,
           emailVerified: result.user.emailVerified,
         },
-        message: 'Account created. Please check your email for verification.',
+        message: 'Account created.',
       });
     } catch (error) {
-      fastify.log.error('Signup error:', error);
+      fastify.log.error('Signup error: ' + (error as Error).message);
       return reply.status(500).send({ error: 'Failed to create account' });
     }
   });
@@ -100,24 +105,16 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     const auth = getAuth();
     
     try {
-      const result = await auth.api.signInEmail({
+      const result: any = await auth.api.signInEmail({
         body: { email, password },
+        headers: request.headers as any,
       });
       
-      if (!result.user) {
+      if (!result?.user) {
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
-      // Set session cookie
-      if (result.session) {
-        reply.setCookie('auth-session', result.session.token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 7,
-        });
-      }
+      forwardAuthCookies(result, reply);
       
       return reply.send({
         user: {
@@ -128,7 +125,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         },
       });
     } catch (error) {
-      fastify.log.error('Signin error:', error);
+      fastify.log.error('Signin error: ' + (error as Error).message);
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
   });
@@ -139,13 +136,13 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     
     try {
       await auth.api.signOut({
-        headers: request.headers,
+        headers: request.headers as any,
       });
       
       reply.clearCookie('auth-session', { path: '/' });
       return reply.send({ success: true });
     } catch (error) {
-      fastify.log.error('Signout error:', error);
+      fastify.log.error('Signout error: ' + (error as Error).message);
       return reply.status(500).send({ error: 'Failed to sign out' });
     }
   });
@@ -156,7 +153,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     
     try {
       const session = await auth.api.getSession({
-        headers: request.headers,
+        headers: request.headers as any,
       });
       
       if (!session?.user) {
@@ -173,7 +170,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         },
       });
     } catch (error) {
-      fastify.log.error('Get session error:', error);
+      fastify.log.error('Get session error: ' + (error as Error).message);
       return reply.status(500).send({ error: 'Failed to get session' });
     }
   });
@@ -193,7 +190,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         message: 'If an account exists with that email, a password reset link has been sent.',
       });
     } catch (error) {
-      fastify.log.error('Password reset error:', error);
+      fastify.log.error('Password reset error: ' + (error as Error).message);
       // Don't reveal if email exists
       return reply.send({ 
         success: true,
@@ -215,7 +212,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
       
       return reply.send({ success: true });
     } catch (error) {
-      fastify.log.error('Reset password error:', error);
+      fastify.log.error('Reset password error: ' + (error as Error).message);
       return reply.status(400).send({ error: 'Invalid or expired reset token' });
     }
   });

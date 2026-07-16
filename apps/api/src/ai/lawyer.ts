@@ -39,6 +39,10 @@ function loadLawyerPrompt(): string {
 export async function getLawyerAdvice(context: LawyerContext): Promise<{ response: LawyerResponse; tokensUsed: number }> {
   const provider = getProvider();
   const promptTemplate = loadLawyerPrompt();
+
+  if (!config.aiLawyerModel) {
+    throw new Error('AI_LAWYER_MODEL is not configured. Set it after a privacy-reviewed evaluation (see D-011).');
+  }
   
   // Build the context for the AI
   const messagesContext = context.publicMessages.map(m => 

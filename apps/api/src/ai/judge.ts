@@ -68,6 +68,10 @@ function loadJudgePrompt(): string {
 export async function evaluateDebate(context: JudgeContext): Promise<{ response: JudgeResponse; tokensUsed: number }> {
   const provider = getProvider();
   const promptTemplate = loadJudgePrompt();
+
+  if (!config.aiJudgeModel) {
+    throw new Error('AI_JUDGE_MODEL is not configured. Set it after a privacy-reviewed evaluation (see D-011).');
+  }
   
   // Build the transcript for the AI
   const transcript = context.publicMessages.map(m => 

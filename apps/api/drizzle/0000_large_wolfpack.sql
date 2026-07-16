@@ -1,6 +1,6 @@
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
 	"access_token" text,
@@ -44,7 +44,7 @@ CREATE TABLE "debates" (
 CREATE TABLE "exports" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"debate_id" uuid NOT NULL,
-	"created_by" uuid NOT NULL,
+	"created_by" text NOT NULL,
 	"include_lawyer_logs" boolean DEFAULT false NOT NULL,
 	"data" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -54,8 +54,8 @@ CREATE TABLE "invitations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"code" text NOT NULL,
 	"email" text NOT NULL,
-	"created_by" uuid NOT NULL,
-	"used_by" uuid,
+	"created_by" text NOT NULL,
+	"used_by" text,
 	"used_at" timestamp with time zone,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE "judge_reports" (
 CREATE TABLE "lawyer_conversations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"debate_id" uuid NOT NULL,
-	"participant_id" uuid NOT NULL,
+	"participant_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -101,7 +101,7 @@ CREATE TABLE "messages" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"debate_id" uuid NOT NULL,
 	"turn_id" uuid,
-	"sender_id" uuid NOT NULL,
+	"sender_id" text NOT NULL,
 	"side" text NOT NULL,
 	"content" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -111,7 +111,7 @@ CREATE TABLE "moderation_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"debate_id" uuid,
 	"message_id" uuid,
-	"user_id" uuid,
+	"user_id" text,
 	"category" text NOT NULL,
 	"action" text NOT NULL,
 	"explanation" text,
@@ -120,7 +120,7 @@ CREATE TABLE "moderation_events" (
 --> statement-breakpoint
 CREATE TABLE "sessions" (
 	"id" text PRIMARY KEY NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
 	"token" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"ip_address" text,
@@ -136,7 +136,7 @@ CREATE TABLE "turns" (
 	"round_index" integer NOT NULL,
 	"turn_index" integer NOT NULL,
 	"side" text NOT NULL,
-	"participant_id" uuid NOT NULL,
+	"participant_id" text NOT NULL,
 	"start_time" timestamp with time zone NOT NULL,
 	"end_time" timestamp with time zone,
 	"status" text DEFAULT 'pending' NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE "turns" (
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"name" text,

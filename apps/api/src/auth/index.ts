@@ -4,7 +4,9 @@ import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { config } from '../config/env.js';
 
-let authInstance: ReturnType<typeof betterAuth> | null = null;
+// Typed loosely: Better Auth 1.6's generic return type is incompatible with the
+// inferred options object, and the db instance is nullable until connect() runs.
+let authInstance: any = null;
 
 export async function init() {
   if (authInstance) {
@@ -12,7 +14,7 @@ export async function init() {
   }
   
   authInstance = betterAuth({
-    database: drizzleAdapter(db, {
+    database: drizzleAdapter(db!, {
       provider: 'pg',
       schema: {
         user: schema.users,
@@ -23,10 +25,12 @@ export async function init() {
     }),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      // Dev note: set to true once an email sender is wired up. Left false so
+      // local signup works without an SMTP/email provider (see D-010).
+      requireEmailVerification: false,
     },
     emailVerification: {
-      sendOnSignUp: true,
+      sendOnSignUp: false,
     },
     session: {
       cookieCache: {

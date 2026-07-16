@@ -1,8 +1,10 @@
 import { pgTable, text, timestamp, uuid, integer, boolean, jsonb, real } from 'drizzle-orm/pg-core';
 
 // Users table with Better Auth integration
+// Note: Better Auth generates its own string IDs, so the id column is `text`
+// (not uuid) to stay compatible with the Drizzle adapter.
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   name: text('name'),
@@ -14,7 +16,7 @@ export const users = pgTable('users', {
 // Better Auth: sessions
 export const sessions = pgTable('sessions', {
   id: text('id').primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   ipAddress: text('ip_address'),
@@ -26,7 +28,7 @@ export const sessions = pgTable('sessions', {
 // Better Auth: accounts (credentials / social links)
 export const accounts = pgTable('accounts', {
   id: text('id').primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
   accessToken: text('access_token'),
@@ -55,8 +57,8 @@ export const invitations = pgTable('invitations', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: text('code').notNull().unique(),
   email: text('email').notNull(), // Target email for the invitation
-  createdBy: uuid('created_by').references(() => users.id).notNull(),
-  usedBy: uuid('used_by').references(() => users.id),
+  createdBy: text('created_by').references(() => users.id).notNull(),
+  usedBy: text('used_by').references(() => users.id),
   usedAt: timestamp('used_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -98,7 +100,7 @@ export const turns = pgTable('turns', {
   roundIndex: integer('round_index').notNull(),
   turnIndex: integer('turn_index').notNull(),
   side: text('side', { enum: ['affirmative', 'negative'] }).notNull(),
-  participantId: uuid('participant_id').notNull(),
+  participantId: text('participant_id').notNull(),
   startTime: timestamp('start_time', { withTimezone: true }).notNull(),
   endTime: timestamp('end_time', { withTimezone: true }),
   status: text('status', { enum: ['pending', 'active', 'completed', 'timeout'] }).notNull().default('pending'),
@@ -110,7 +112,7 @@ export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
   turnId: uuid('turn_id').references(() => turns.id, { onDelete: 'cascade' }),
-  senderId: uuid('sender_id').notNull(),
+  senderId: text('sender_id').notNull(),
   side: text('side', { enum: ['affirmative', 'negative', 'system'] }).notNull(),
   content: text('content').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -120,7 +122,7 @@ export const messages = pgTable('messages', {
 export const lawyerConversations = pgTable('lawyer_conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
   debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
-  participantId: uuid('participant_id').notNull(),
+  participantId: text('participant_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -170,7 +172,7 @@ export const moderationEvents = pgTable('moderation_events', {
   id: uuid('id').primaryKey().defaultRandom(),
   debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }),
   messageId: uuid('message_id').references(() => messages.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id),
+  userId: text('user_id').references(() => users.id),
   category: text('category', { enum: ['harassment', 'threat', 'hate', 'spam', 'disruption', 'other'] }).notNull(),
   action: text('action', { enum: ['none', 'warning', 'official_warning', 'penalty', 'terminate'] }).notNull(),
   explanation: text('explanation'),
@@ -181,7 +183,7 @@ export const moderationEvents = pgTable('moderation_events', {
 export const exports = pgTable('exports', {
   id: uuid('id').primaryKey().defaultRandom(),
   debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
-  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  createdBy: text('created_by').references(() => users.id).notNull(),
   includeLawyerLogs: boolean('include_lawyer_logs').notNull().default(false),
   data: jsonb('data').notNull(), // Full export data
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
