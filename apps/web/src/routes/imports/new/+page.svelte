@@ -1,7 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api';
 
-  let file = $state<File | null>(null);
   let preview = $state<any>(null);
   let error = $state('');
   let message = $state('');
@@ -12,7 +11,6 @@
   async function onFile(e: Event) {
     const input = e.target as HTMLInputElement;
     const f = input.files?.[0] ?? null;
-    file = f;
     preview = null;
     error = '';
     message = '';
@@ -65,6 +63,6 @@
     <p><strong>Topic:</strong> {preview.debate?.topic ?? '(unknown)'}</p>
     <p><strong>Outcome:</strong> {preview.judgeReport?.outcome ?? '(none)'}</p>
     <p class="muted">Server will validate the schema and version before storing it as a reference.</p>
-    <button onclick={submit} disabled={importing}>Import as reference</button>
+    <button type="button" onclick={submit} disabled={importing}>Import as reference</button>
   </div>
 {/if}

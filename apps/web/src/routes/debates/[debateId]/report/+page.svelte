@@ -2,7 +2,6 @@
   import { api } from '$lib/api';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
 
   const debateId = $derived($page.params.debateId!);
 
@@ -27,7 +26,6 @@
   let error = $state('');
   let loading = $state(true);
   let judging = $state(false);
-  let triggered = $state(false);
 
   async function load() {
     loading = true;
@@ -52,7 +50,6 @@
     error = '';
     try {
       report = await api.judgeDebate(debateId);
-      triggered = true;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Judging failed';
     } finally {
@@ -86,7 +83,7 @@
     <div class="card">
       <p>No Judge report yet. The transcript is locked for evaluation.</p>
       {#if debate.status === 'judging'}
-        <button onclick={runJudge} disabled={judging}>{judging ? 'Evaluating…' : 'Run Judge'}</button>
+        <button type="button" onclick={runJudge} disabled={judging}>{judging ? 'Evaluating…' : 'Run Judge'}</button>
       {:else if debate.status === 'active'}
         <p class="muted">Finish the debate (move it to judging) before requesting a report.</p>
         <a href={`/debates/${debateId}`} class="btn-secondary">Back to debate</a>
@@ -183,7 +180,7 @@
   {/if}
 
   <p>
-    <button onclick={downloadExport}>Download export (JSON)</button>
+    <button type="button" onclick={downloadExport}>Download export (JSON)</button>
     <a href={`/debates/${debateId}`} style="margin-left:0.5rem;">Back to debate</a>
   </p>
 {/if}

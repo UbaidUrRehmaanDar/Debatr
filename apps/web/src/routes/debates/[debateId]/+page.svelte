@@ -35,6 +35,15 @@
   let evidenceList = $state<any[]>([]);
   let evidenceBusy = $state(false);
 
+  // Current user (for side detection) + teardown guard for navigation.
+  let me = $state<any>(null);
+  let destroyed = $state(false);
+
+  // Navigate only if the component is still mounted, to avoid goto-after-unmount errors.
+  function navigate(to: string) {
+    if (!destroyed) goto(to, { replaceState: true });
+  }
+
   async function loadSnapshot() {
     try {
       const d = await api.getDebate(debateId);
@@ -47,7 +56,7 @@
       messages = d.messages ?? [];
       evidenceList = d.evidence ?? [];
       if (d.status === 'judging' || d.status === 'completed') {
-        goto(`/debates/${debateId}/report`, { replaceState: true });
+        navigate(`/debates/${debateId}/report`);
       }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load debate';
@@ -56,8 +65,6 @@
     }
   }
 
-  // We need current user id for side detection; load session first.
-  let me = $state<any>(null);
   async function loadMe() {
     try {
       const { user } = await api.me();
@@ -68,10 +75,11 @@
   }
 
   function onEvent(e: DebateEvent) {
+    if (destroyed) return;
     if (e.type === 'error') error = e.message;
     if (e.type === 'debate_state_changed') {
       if (e.status === 'judging' || e.status === 'completed') {
-        goto(`/debates/${debateId}/report`, { replaceState: true });
+        navigate(`/debates/${debateId}/report`);
       } else {
         debate = { ...debate, status: e.status, currentTurnId: e.currentTurnId, currentRound: e.currentRound };
       }
@@ -117,7 +125,7 @@
     completing = true;
     try {
       await api.completeDebate(debateId);
-      goto(`/debates/${debateId}/report`, { replaceState: true });
+      navigate(`/debates/${debateId}/report`);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to complete';
     } finally {
@@ -221,7 +229,10 @@
     await loadSnapshot();
     socket.connect(debateId, onEvent, (s) => { connection = s; });
   });
-  onDestroy(() => socket.disconnect());
+  onDestroy(() => {
+    destroyed = true;
+    socket.disconnect();
+  });
 </script>
 
 {#if loading}
@@ -251,9 +262,9 @@
     {#if debate.status === 'waiting_for_participants'}
       <p>This debate is waiting for the opponent to join. Share the link so they can accept.</p>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button class="btn-secondary" onclick={() => navigator.clipboard?.writeText(location.href)}>Copy invite link</button>
+        <button type="button" class="btn-secondary" onclick={() => navigator.clipboard?.writeText(location.href)}>Copy invite link</button>
         {#if mySide === 'negative'}
-          <button onclick={doJoin} disabled={joining}>{joining ? 'Joining…' : 'Join as opponent'}</button>
+          <button type="button" onclick={doJoin} disabled={joining}>{joining ? 'Joining…' : 'Join as opponent'}</button>
         {/if}
       </div>
     {:else if debate.status === 'active'}
@@ -299,7 +310,7 @@
           placeholder="Write your argument for this turn…" aria-label="Your message"></textarea>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
           <span class="muted">{draft.length}/{debate.maxCharactersPerTurn}</span>
-          <button onclick={sendMessage} disabled={sending || !draft.trim()}>
+          <button type="button" onclick={sendMessage} disabled={sending || !draft.trim()}>
             {sending ? 'Sending…' : 'Submit turn'}
           </button>
         </div>
@@ -307,14 +318,14 @@
         <p class="muted">You can post only during your own turn. {debate.currentTurnSide && mySide && debate.currentTurnSide !== mySide ? 'Waiting for the ' + debate.currentTurnSide + ' side.' : ''}</p>
       {/if}
       <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button class="btn-secondary" onclick={doRaiseHand} disabled={raiseHandBusy || isMyTurn}>
+        <button type="button" class="btn-secondary" onclick={doRaiseHand} disabled={raiseHandBusy || isMyTurn}>
           Raise hand
         </button>
-        <button class="btn-secondary" onclick={doPause} disabled={pausing}>Pause</button>
-        <button class="btn-secondary" onclick={doComplete} disabled={completing || !!debate.currentTurnId}>
+        <button type="button" class="btn-secondary" onclick={doPause} disabled={pausing}>Pause</button>
+        <button type="button" class="btn-secondary" onclick={doComplete} disabled={completing || !!debate.currentTurnId}>
           End debate (move to judging)
         </button>
-        <button class="btn-secondary" onclick={doCancel} disabled={cancelling}>Cancel debate</button>
+        <button type="button" class="btn-secondary" onclick={doCancel} disabled={cancelling}>Cancel debate</button>
       </div>
        {#if cancelling}
          <div style="margin-top:0.5rem;">
@@ -329,7 +340,7 @@
     <section class="card">
       <h2>Debate paused</h2>
       <p class="muted">No turns or messages proceed while paused.</p>
-      <button onclick={doResume} disabled={resuming}>Resume debate</button>
+      <button type="button" onclick={doResume} disabled={resuming}>Resume debate</button>
     </section>
   {/if}
 
@@ -357,7 +368,7 @@
         <option value="affirmative">Affirmative</option>
         <option value="negative">Negative</option>
       </select>
-      <button onclick={pinEvidence} disabled={evidenceBusy || !evidenceClaim.trim()}>Pin</button>
+      <button type="button" onclick={pinEvidence} disabled={evidenceBusy || !evidenceClaim.trim()}>Pin</button>
     </div>
   </section>
 
@@ -368,14 +379,14 @@
       <span class="tag neutral" style="margin-left:0.5rem;">Private to you</span>
     </h2>
     {#if !lawyerOpen}
-      <button class="btn-secondary" onclick={() => (lawyerOpen = true)}>Open Lawyer</button>
+      <button type="button" class="btn-secondary" onclick={() => (lawyerOpen = true)}>Open Lawyer</button>
     {:else}
       <textarea bind:value={lawyerRequest} rows="3" placeholder="Ask your private Lawyer for help…" aria-label="Lawyer request"></textarea>
       <div style="margin:0.5rem 0;">
-        <button onclick={askLawyer} disabled={lawyerBusy || !lawyerRequest.trim()}>
+        <button type="button" onclick={askLawyer} disabled={lawyerBusy || !lawyerRequest.trim()}>
           {lawyerBusy ? 'Thinking…' : 'Ask'}
         </button>
-        <button class="btn-secondary" onclick={() => (lawyerOpen = false)}>Close</button>
+        <button type="button" class="btn-secondary" onclick={() => (lawyerOpen = false)}>Close</button>
       </div>
       {#if lawyerError}<p class="error" role="alert">{lawyerError}</p>{/if}
       {#if lawyerAdvice}

@@ -28,7 +28,7 @@
     </nav>
     <div class="account">
       <span>{user?.name || user?.email}</span>
-      <button onclick={doLogout}>Sign out</button>
+      <button type="button" onclick={doLogout}>Sign out</button>
     </div>
   </header>
 {/if}

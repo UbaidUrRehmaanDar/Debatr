@@ -97,7 +97,8 @@ Respond with valid JSON matching the LawyerResponse schema.`;
 
   const result = await provider.complete(fullPrompt, {
     model: config.aiLawyerModel,
-    maxTokens: 2048,
+    // Respect the operator-configured per-request cap; never exceed it.
+    maxTokens: Math.min(2048, config.aiMaxTokensPerRequest),
     temperature: 0.7,
   });
   
