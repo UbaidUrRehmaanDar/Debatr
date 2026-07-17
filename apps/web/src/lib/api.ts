@@ -114,7 +114,15 @@ export const api = {
   judgeDebate: (id: string) =>
     request<any>(`/api/debates/${id}/judge`, { method: 'POST' }),
 
+  factCheckMessage: (id: string, messageId: string) =>
+    request<{ id: string; verdict: string; claims: any[] }>(
+      `/api/debates/${id}/messages/${messageId}/fact-check`,
+      { method: 'POST' },
+    ),
+
   getReport: (id: string) => request<any>(`/api/debates/${id}/report`),
+
+  getAnalytics: () => request<any>('/api/admin/analytics'),
 
   pinEvidence: (id: string, claim: string, source?: string, side?: string) =>
     request<any>(`/api/debates/${id}/evidence`, {

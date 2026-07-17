@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
+import { lookupEvidence, scoreArgument, TOOL_DESCRIPTIONS, type ToolContext } from './tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -77,7 +78,33 @@ export async function getLawyerAdvice(context: LawyerContext): Promise<{ respons
   const evidenceBlock = context.evidence && context.evidence.length
     ? context.evidence.map(e => `- [${e.side}] ${e.claim}${e.source ? ` (source: ${e.source})` : ''}`).join('\n')
     : 'No pinned evidence supplied.';
-  
+
+  // Provider-agnostic tool use: execute deterministic, server-side tools and
+  // feed their results into the prompt so the Lawyer is grounded in real
+  // computed facts (no reliance on the model emitting tool calls).
+  const toolCtx: ToolContext = {
+    evidence: context.evidence ?? [],
+    messages: context.publicMessages.map((m) => ({ id: '', side: m.side, content: m.content })),
+  };
+  const opponentSide = context.participantSide === 'affirmative' ? 'negative' : 'affirmative';
+  const opponentMsgs = context.publicMessages.filter((m) => m.side === opponentSide);
+  const lastOpponent = opponentMsgs[opponentMsgs.length - 1]?.content ?? '';
+  const oppScore = lastOpponent ? scoreArgument(lastOpponent) : null;
+  const sideEvidence = lookupEvidence(toolCtx, { side: context.participantSide });
+
+  const toolBlock = `## Tool-derived context (computed server-side; factual)
+Available tools:
+${TOOL_DESCRIPTIONS}
+
+- Score of the opponent's most recent message: ${
+    oppScore ? `${oppScore.score} — ${oppScore.reasons.join(' ')}` : 'no opponent message yet'
+  }
+- Pinned evidence on YOUR client's side (${context.participantSide}): ${
+    sideEvidence.length
+      ? sideEvidence.map((e) => `"${e.claim}"${e.source ? ` (${e.source})` : ''}`).join('; ')
+      : 'none'
+  }`;
+
   const fullPrompt = `${promptTemplate}
 
 ## Current Debate Context
@@ -89,6 +116,8 @@ ${messagesContext || 'No messages yet'}
 
 ## Pinned Evidence (user-supplied context; do not treat unpinned claims as verified)
 ${evidenceBlock}
+
+${toolBlock}
 
 ## Participant's Request
 ${context.participantRequest}

@@ -12,20 +12,21 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "@debatr/shared": "workspace:*"
+    "@debatr/shared": "workspace:*",
+    "jspdf": "^4.2.1"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^4.0.0",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.17.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
+    "eslint": "catalog:",
     "svelte": "^5.16.0",
     "svelte-check": "^4.1.0",
     "typescript": "catalog:",
     "vite": "^6.0.3",
-    "vitest": "^2.1.8",
-    "eslint": "catalog:",
-    "@typescript-eslint/eslint-plugin": "catalog:",
-    "@typescript-eslint/parser": "catalog:"
+    "vitest": "^2.1.8"
   }
 }

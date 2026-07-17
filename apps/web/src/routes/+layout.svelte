@@ -25,6 +25,9 @@
       <a href="/debates" aria-current={path.startsWith('/debates') ? 'page' : undefined}>Debates</a>
       <a href="/debates/new" aria-current={path === '/debates/new' ? 'page' : undefined}>New</a>
       <a href="/imports/new" aria-current={path === '/imports/new' ? 'page' : undefined}>Import</a>
+      {#if user?.role === 'admin'}
+        <a href="/analytics" aria-current={path === ('/analytics' as string) ? 'page' : undefined}>Analytics</a>
+      {/if}
     </nav>
     <div class="account">
       <span>{user?.name || user?.email}</span>

@@ -33,6 +33,7 @@ const envSchema = z.object({
   // Model IDs are chosen after evaluation; optional until then (see D-011).
   AI_LAWYER_MODEL: z.string().optional(),
   AI_JUDGE_MODEL: z.string().optional(),
+  AI_FACT_CHECKER_MODEL: z.string().optional(),
 
   // Email service (Resend)
   RESEND_API_KEY: z.string().min(1),
@@ -121,6 +122,10 @@ class Config {
   
   get aiJudgeModel(): string | undefined {
     return this.config!.AI_JUDGE_MODEL;
+  }
+
+  get aiFactCheckerModel(): string | undefined {
+    return this.config!.AI_FACT_CHECKER_MODEL;
   }
   
   get aiMaxTokensPerRequest(): number {

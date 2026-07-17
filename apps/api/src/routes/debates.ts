@@ -12,11 +12,13 @@ import {
   raiseHandRequests,
   evidence,
   moderationEvents,
+  factChecks,
 } from '../db/schema/index.js';
 import { eq, and, asc, sql } from 'drizzle-orm';
 import { config } from '../config/env.js';
 import { getLawyerAdvice } from '../ai/lawyer.js';
 import { evaluateDebate } from '../ai/judge.js';
+import { factCheckMessage } from '../ai/factChecker.js';
 import { checkDebateBudget } from '../ai/budget.js';
 import {
   startDebateTurns,
@@ -26,6 +28,7 @@ import {
 } from '../debates/engine.js';
 import { debateEvents } from '../debates/events.js';
 import { logger } from '../observability/logger.js';
+import { checkRateLimit } from '../middleware/rateLimit.js';
 
 interface CreateDebateBody {
   topic: string;
@@ -205,11 +208,24 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
     const debateMessages = await db.select().from(messages).where(eq(messages.debateId, debate.id)).orderBy(asc(messages.createdAt));
     const debateEvidence = await db.select().from(evidence).where(eq(evidence.debateId, debate.id));
     const debateModeration = await db.select().from(moderationEvents).where(eq(moderationEvents.debateId, debate.id));
+    const debateFactChecks = await db.select().from(factChecks).where(eq(factChecks.debateId, debate.id));
+
+    const factCheckByMessage = new Map<string, any>();
+    for (const fc of debateFactChecks) {
+      // Keep the most recent fact-check per message.
+      const existing = factCheckByMessage.get(fc.messageId);
+      if (!existing || fc.createdAt > existing.createdAt) {
+        factCheckByMessage.set(fc.messageId, fc);
+      }
+    }
 
     return {
       ...debate,
       currentTurnSide: activeTurn?.side ?? null,
-      messages: debateMessages,
+      messages: debateMessages.map((m) => ({
+        ...m,
+        factCheck: factCheckByMessage.get(m.id) ?? null,
+      })),
       evidence: debateEvidence,
       moderationEvents: debateModeration,
     };
@@ -217,6 +233,7 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
 
   // Submit a public message for the current turn
   fastify.post('/api/debates/:id/message', async (request: FastifyRequest<{ Params: { id: string }; Body: { content: string } }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 60, windowMs: 60_000 }))) return;
     const user = await requireVerifiedUser(request, reply);
     if (!user) return;
     const { content } = request.body;
@@ -508,6 +525,7 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
 
   // Request Lawyer advice (private, per participant)
   fastify.post('/api/debates/:id/lawyer', async (request: FastifyRequest<{ Params: { id: string }; Body: { request: string } }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 20, windowMs: 60_000 }))) return;
     const user = await requireVerifiedUser(request, reply);
     if (!user) return;
     const { request: participantRequest } = request.body;
@@ -546,6 +564,7 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      debateEvents.emit(debate.id, { type: 'ai_thinking', debateId: debate.id, role: 'lawyer', isThinking: true });
       const { response, tokensUsed, requestId } = await getLawyerAdvice({
         debateTopic: debate.topic,
         participantSide: side,
@@ -574,6 +593,77 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
     } catch (error) {
       logger.error('lawyer.request_failed', { debateId: debate.id, participantId: user.id, error });
       return reply.status(502).send({ error: 'Lawyer advice could not be generated. Please try again.' });
+    } finally {
+      debateEvents.emit(debate.id, { type: 'ai_thinking', debateId: debate.id, role: 'lawyer', isThinking: false });
+    }
+  });
+
+  // Run the Fact-Checker agent on a single message's factual claims. Any
+  // participant of the debate may request it. Results are stored and broadcast.
+  fastify.post('/api/debates/:id/messages/:messageId/fact-check', async (request: FastifyRequest<{ Params: { id: string; messageId: string } }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 30, windowMs: 60_000 }))) return;
+    const user = await requireVerifiedUser(request, reply);
+    if (!user) return;
+    const debate = await requireParticipant(request.params.id, user.id as string, reply);
+    if (!debate) return;
+
+    const db = getDb();
+    const [message] = await db.select().from(messages)
+      .where(and(eq(messages.id, request.params.messageId), eq(messages.debateId, debate.id)))
+      .limit(1);
+    if (!message) return reply.code(404).send({ error: 'Message not found' });
+    if (message.side === 'system') return reply.code(400).send({ error: 'Cannot fact-check system messages' });
+
+    // Reuse the per-debate AI token budget.
+    const budget = await checkDebateBudget(debate.id);
+    if (!budget.allowed) {
+      return reply.status(429).send({
+        error: 'AI token budget for this debate has been exhausted',
+        used: budget.used,
+        limit: budget.limit,
+      });
+    }
+
+    const evidenceRows = await db.select().from(evidence).where(eq(evidence.debateId, debate.id));
+
+    try {
+      const { response, tokensUsed, requestId } = await factCheckMessage({
+        debateTopic: debate.topic,
+        messageContent: message.content,
+        messageSide: message.side as 'affirmative' | 'negative',
+        evidence: evidenceRows.map((e) => ({ side: e.side, claim: e.claim, source: e.source })),
+      });
+
+      const [stored] = await db.insert(factChecks).values({
+        debateId: debate.id,
+        messageId: message.id,
+        checkedById: user.id as any,
+        verdict: response.verdict,
+        claims: response.claims as any,
+        model: config.aiFactCheckerModel ?? 'unset',
+        tokensUsed,
+      }).returning();
+
+      await db.insert(aiUsage).values({
+        debateId: debate.id,
+        role: 'fact_checker',
+        tokensUsed,
+        requestId: requestId ?? null,
+        model: config.aiFactCheckerModel ?? 'unset',
+      });
+
+      debateEvents.emit(debate.id, {
+        type: 'fact_checked',
+        debateId: debate.id,
+        messageId: message.id,
+        verdict: response.verdict,
+        factCheckId: stored.id,
+      });
+
+      return reply.status(200).send({ id: stored.id, verdict: response.verdict, claims: response.claims });
+    } catch (error) {
+      logger.error('fact_checker.request_failed', { debateId: debate.id, messageId: message.id, error });
+      return reply.status(502).send({ error: 'Fact-check could not be generated. Please try again.' });
     }
   });
 
@@ -594,6 +684,7 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
 
   // Trigger judging once a debate is completed
   fastify.post('/api/debates/:id/judge', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 10, windowMs: 60_000 }))) return;
     const user = await requireUser(request, reply);
     if (!user) return;
 
@@ -624,6 +715,7 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
     const evidenceRows = await db.select().from(evidence).where(eq(evidence.debateId, debate.id));
 
     try {
+      debateEvents.emit(debate.id, { type: 'ai_thinking', debateId: debate.id, role: 'judge', isThinking: true });
       const { response, tokensUsed, requestId } = await evaluateDebate({
         debateTopic: debate.topic,
         publicMessages: publicMessages.map((m) => ({ id: m.id, side: m.side, content: m.content, createdAt: m.createdAt.toISOString() })),
@@ -694,6 +786,8 @@ export async function registerDebateRoutes(fastify: FastifyInstance) {
     } catch (error) {
       logger.error('judge.request_failed', { debateId: debate.id, error });
       return reply.status(502).send({ error: 'Judging failed. Please try again.' });
+    } finally {
+      debateEvents.emit(debate.id, { type: 'ai_thinking', debateId: debate.id, role: 'judge', isThinking: false });
     }
   });
 }

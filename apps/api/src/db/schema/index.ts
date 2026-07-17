@@ -160,7 +160,7 @@ export const judgeReports = pgTable('judge_reports', {
 export const aiUsage = pgTable('ai_usage', {
   id: uuid('id').primaryKey().defaultRandom(),
   debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
-  role: text('role', { enum: ['lawyer', 'judge'] }).notNull(),
+  role: text('role', { enum: ['lawyer', 'judge', 'fact_checker'] }).notNull(),
   tokensUsed: integer('tokens_used').notNull(),
   model: text('model').notNull(),
   requestId: text('request_id'), // Provider's request ID if available
@@ -203,6 +203,29 @@ export const evidence = pgTable('evidence', {
   side: text('side', { enum: ['affirmative', 'negative', 'neutral'] }).notNull().default('neutral'),
   claim: text('claim').notNull(),
   source: text('source'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Fact-check results for individual claims within a message. The Fact-Checker
+// agent assesses only supplied/retrieved sources and returns attributable
+// findings; results are stored so the UI can surface verification badges.
+export const factChecks = pgTable('fact_checks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'cascade' }).notNull(),
+  checkedById: text('checked_by_id').references(() => users.id),
+  // Overall verdict for the message's factual claims.
+  verdict: text('verdict', { enum: ['verified', 'disputed', 'unverified', 'mixed'] }).notNull(),
+  // Per-claim findings (structured, schema-validated before insert).
+  claims: jsonb('claims').notNull().$type<Array<{
+    claim: string;
+    assessment: 'verified' | 'disputed' | 'unverified';
+    confidence: number;
+    reasoning: string;
+    source?: string | null;
+  }>>(),
+  model: text('model').notNull(),
+  tokensUsed: integer('tokens_used'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -35,6 +35,35 @@
   let evidenceList = $state<any[]>([]);
   let evidenceBusy = $state(false);
 
+  // Fact-check results keyed by messageId, plus per-message busy state.
+  let factChecks = $state<Record<string, any>>({});
+  let factChecking = $state<Record<string, boolean>>({});
+
+  // Real-time presence extras: typing indicators, transient reactions, AI state.
+  let typingUsers = $state<Record<string, string>>({}); // userId -> side
+  let reactions = $state<Array<{ id: number; emoji: string; side: string }>>([]);
+  let aiThinking = $state<{ lawyer: boolean; judge: boolean }>({ lawyer: false, judge: false });
+  let reactionSeq = 0;
+
+  let typingTimer: ReturnType<typeof setTimeout> | null = null;
+  function notifyTyping() {
+    socket.send({ type: 'typing', isTyping: true });
+    if (typingTimer) clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => socket.send({ type: 'typing', isTyping: false }), 1500);
+  }
+
+  function sendReaction(emoji: string) {
+    socket.send({ type: 'react', emoji });
+    // Optimistically show our own reaction too (server doesn't echo to sender).
+    addReaction(emoji, mySide ?? 'neutral');
+  }
+
+  function addReaction(emoji: string, side: string) {
+    const id = ++reactionSeq;
+    reactions = [...reactions, { id, emoji, side }];
+    setTimeout(() => { reactions = reactions.filter((r) => r.id !== id); }, 3000);
+  }
+
   // Current user (for side detection) + teardown guard for navigation.
   let me = $state<any>(null);
   let destroyed = $state(false);
@@ -92,6 +121,23 @@
     }
     if (e.type === 'presence') {
       presentCount = Math.max(1, e.userIds.length);
+    }
+    if (e.type === 'fact_checked') {
+      loadSnapshot();
+    }
+    if (e.type === 'typing') {
+      if (e.isTyping) typingUsers = { ...typingUsers, [e.userId]: e.side };
+      else {
+        const next = { ...typingUsers };
+        delete next[e.userId];
+        typingUsers = next;
+      }
+    }
+    if (e.type === 'reaction') {
+      addReaction(e.emoji, e.side);
+    }
+    if (e.type === 'ai_thinking') {
+      aiThinking = { ...aiThinking, [e.role]: e.isThinking };
     }
   }
 
@@ -224,6 +270,19 @@
   );
   let canPost = $derived(isMyTurn && !sending);
 
+  async function runFactCheck(messageId: string) {
+    factChecking = { ...factChecking, [messageId]: true };
+    error = '';
+    try {
+      const res = await api.factCheckMessage(debateId, messageId);
+      factChecks = { ...factChecks, [messageId]: { verdict: res.verdict, claims: res.claims } };
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Fact-check failed';
+    } finally {
+      factChecking = { ...factChecking, [messageId]: false };
+    }
+  }
+
   onMount(async () => {
     await loadMe();
     await loadSnapshot();
@@ -252,6 +311,12 @@
     <div style="text-align:right;">
       <span class="tag neutral">{debate.status.replace(/_/g, ' ')}</span>
       <p class="muted" style="margin:0.25rem 0 0;">Connection: {connection} · {presentCount} online</p>
+      {#if Object.keys(typingUsers).length}
+        <p class="muted" style="margin:0.1rem 0 0;">{Object.values(typingUsers).join(', ')} {Object.keys(typingUsers).length > 1 ? 'are' : 'is'} typing…</p>
+      {/if}
+      {#if aiThinking.lawyer || aiThinking.judge}
+        <p class="muted" style="margin:0.1rem 0 0;">🤖 AI {aiThinking.judge ? 'Judge' : 'Lawyer'} is thinking…</p>
+      {/if}
     </div>
   </header>
 
@@ -286,18 +351,47 @@
   <!-- Transcript -->
   <section class="card">
     <h2>Transcript</h2>
+    {#if reactions.length}
+      <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;" aria-hidden="true">
+        {#each reactions as r (r.id)}
+          <span style="font-size:1.4rem; animation: pop 0.3s ease;">{r.emoji}</span>
+        {/each}
+      </div>
+    {/if}
     {#if messages.length === 0}
       <p class="muted">No messages yet.</p>
     {:else}
-       <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:0.5rem;" aria-live="polite" aria-label="Debate transcript" aria-relevant="additions">
-         {#each messages as m (m.id)}
-          <li class="card" style="margin:0;">
-            <span class="tag {m.side === 'system' ? 'neutral' : m.side}">{m.side}</span>
-            <span class="muted" style="font-size:0.8rem;">{new Date(m.createdAt).toLocaleTimeString()}</span>
-            <p style="margin:0.4rem 0 0; white-space:pre-wrap;">{m.content}</p>
-          </li>
-        {/each}
-      </ul>
+         <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:0.5rem;" aria-live="polite" aria-label="Debate transcript" aria-relevant="additions">
+          {#each messages as m (m.id)}
+           <li class="card" style="margin:0;">
+             <span class="tag {m.side === 'system' ? 'neutral' : m.side}">{m.side}</span>
+             <span class="muted" style="font-size:0.8rem;">{new Date(m.createdAt).toLocaleTimeString()}</span>
+             <p style="margin:0.4rem 0 0; white-space:pre-wrap;">{m.content}</p>
+             {#if m.side !== 'system'}
+               <div style="margin-top:0.4rem; display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
+                 <button class="btn-secondary" type="button" onclick={() => runFactCheck(m.id)} disabled={factChecking[m.id]}>
+                   {factChecking[m.id] ? 'Checking…' : 'Fact-check'}
+                 </button>
+                 {#if m.factCheck || factChecks[m.id]}
+                   {@const fc = factChecks[m.id] ?? m.factCheck}
+                   <span class="tag {fc.verdict === 'verified' ? 'affirmative' : fc.verdict === 'disputed' ? 'negative' : 'neutral'}">
+                     {fc.verdict}
+                   </span>
+                   <ul style="flex-basis:100%; margin:0.25rem 0 0; padding-left:1.1rem;">
+                     {#each fc.claims as c}
+                       <li>
+                         <strong>{c.assessment}</strong>: {c.claim}
+                         {#if c.source}<span class="muted"> — {c.source}</span>{/if}
+                         <span class="muted"> ({Math.round((c.confidence ?? 0) * 100)}%)</span>
+                       </li>
+                     {/each}
+                   </ul>
+                 {/if}
+               </div>
+             {/if}
+           </li>
+         {/each}
+       </ul>
     {/if}
   </section>
 
@@ -306,13 +400,18 @@
     <section class="card">
       <h2>Your turn to speak</h2>
       {#if canPost}
-        <textarea bind:value={draft} rows="4" maxlength={debate.maxCharactersPerTurn}
+        <textarea bind:value={draft} rows="4" maxlength={debate.maxCharactersPerTurn} oninput={notifyTyping}
           placeholder="Write your argument for this turn…" aria-label="Your message"></textarea>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
           <span class="muted">{draft.length}/{debate.maxCharactersPerTurn}</span>
           <button type="button" onclick={sendMessage} disabled={sending || !draft.trim()}>
             {sending ? 'Sending…' : 'Submit turn'}
           </button>
+        </div>
+        <div style="margin-top:0.5rem; display:flex; gap:0.35rem; flex-wrap:wrap;">
+          {#each ['👍', '👎', '🔥', '💡', '❓', '🎯'] as emoji}
+            <button type="button" class="btn-secondary" onclick={() => sendReaction(emoji)} style="padding:0.15rem 0.5rem;">{emoji}</button>
+          {/each}
         </div>
       {:else}
         <p class="muted">You can post only during your own turn. {debate.currentTurnSide && mySide && debate.currentTurnSide !== mySide ? 'Waiting for the ' + debate.currentTurnSide + ' side.' : ''}</p>

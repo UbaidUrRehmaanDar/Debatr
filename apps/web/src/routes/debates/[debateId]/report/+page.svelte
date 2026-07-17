@@ -2,6 +2,7 @@
   import { api } from '$lib/api';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import { buildDebatePdf, downloadBlob } from '$lib/pdf';
 
   const debateId = $derived($page.params.debateId!);
 
@@ -18,6 +19,21 @@
     } catch (err) {
       error = err instanceof Error ? err.message : 'Export failed';
     }
+  }
+
+  function downloadPdf() {
+    if (!debate) return;
+    const blob = buildDebatePdf({
+      topic: debate.topic,
+      status: debate.status,
+      messages: (debate.messages ?? []).map((m: any) => ({
+        side: m.side,
+        content: m.content,
+        createdAt: m.createdAt,
+      })),
+      report: report ?? null,
+    });
+    downloadBlob(blob, `debatr-${debateId}.pdf`);
   }
 
   let debate = $state<any>(null);
@@ -181,6 +197,7 @@
 
   <p>
     <button type="button" onclick={downloadExport}>Download export (JSON)</button>
+    <button type="button" class="btn-secondary" onclick={downloadPdf} style="margin-left:0.5rem;">Download PDF</button>
     <a href={`/debates/${debateId}`} style="margin-left:0.5rem;">Back to debate</a>
   </p>
 {/if}

@@ -3,6 +3,7 @@ import { getAuth } from '../auth/index.js';
 import { getDb } from '../db/index.js';
 import { invitations } from '../db/schema/index.js';
 import { eq, and, sql } from 'drizzle-orm';
+import { checkRateLimit } from '../middleware/rateLimit.js';
 
 interface SignUpBody {
   email: string;
@@ -47,6 +48,7 @@ function forwardAuthCookies(result: any, reply: FastifyReply) {
 export async function registerAuthRoutes(fastify: FastifyInstance) {
   // Sign up with invitation code
   fastify.post('/api/auth/signup', async (request: FastifyRequest<{ Body: SignUpBody }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 10, windowMs: 60_000 }))) return;
     const { email, password, name, invitationCode } = request.body;
     const db = getDb();
     const auth = getAuth();
@@ -124,8 +126,8 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
   
   // Sign in
   fastify.post('/api/auth/signin', async (request: FastifyRequest<{ Body: SignInBody }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 20, windowMs: 60_000 }))) return;
     const { email, password } = request.body;
-    
     const auth = getAuth();
     
     try {
@@ -204,6 +206,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
   
   // Request password reset
   fastify.post('/api/auth/forgot-password', async (request: FastifyRequest<{ Body: { email: string } }>, reply: FastifyReply) => {
+    if (!(await checkRateLimit(request, reply, { max: 10, windowMs: 60_000 }))) return;
     const { email } = request.body;
     const auth = getAuth();
     

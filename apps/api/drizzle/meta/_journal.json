@@ -29,6 +29,20 @@
       "when": 1784285176037,
       "tag": "0003_nosy_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784289085443,
+      "tag": "0004_yielding_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784289085444,
+      "tag": "0005_fact_checker_role",
+      "breakpoints": true
     }
   ]
 }

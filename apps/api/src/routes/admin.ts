@@ -6,6 +6,7 @@ import { users, accounts } from '../db/schema/index.js';
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getAiUsageDashboard } from '../ai/usage.js';
+import { getDebateAnalytics } from '../ai/analytics.js';
 import { logger } from '../observability/logger.js';
 
 interface CreateAdminBody {
@@ -53,6 +54,20 @@ export async function registerAdminRoutes(fastify: FastifyInstance) {
     } catch (error) {
       logger.error('admin.ai_usage_failed', { adminId: admin.id, error });
       return reply.status(500).send({ error: 'Failed to build usage dashboard' });
+    }
+  });
+
+  // Debate analytics aggregated from completed judge reports: outcome
+  // distribution, win rates, common fallacies, and confidence trend.
+  fastify.get('/api/admin/analytics', async (request: FastifyRequest, reply: FastifyReply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) return;
+    try {
+      const analytics = await getDebateAnalytics();
+      return reply.send(analytics);
+    } catch (error) {
+      logger.error('admin.analytics_failed', { adminId: admin.id, error });
+      return reply.status(500).send({ error: 'Failed to build analytics' });
     }
   });
 

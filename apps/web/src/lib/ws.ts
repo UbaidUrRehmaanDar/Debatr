@@ -9,6 +9,10 @@ export type DebateEvent =
   | { type: 'raise_hand'; debateId: string; requestId: string; side: string }
   | { type: 'raise_hand_decided'; debateId: string; requestId: string; status: string }
   | { type: 'presence'; debateId: string; userIds: string[] }
+  | { type: 'fact_checked'; debateId: string; messageId: string; verdict: string; factCheckId: string }
+  | { type: 'typing'; debateId: string; userId: string; side: string; isTyping: boolean }
+  | { type: 'reaction'; debateId: string; userId: string; side: string; emoji: string }
+  | { type: 'ai_thinking'; debateId: string; role: 'lawyer' | 'judge'; isThinking: boolean }
   | { type: 'error'; message: string };
 
 export type WsStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'unauthorized';
@@ -100,5 +104,12 @@ export class DebateSocket {
     this.ws?.close();
     this.ws = null;
     this.setStatus('disconnected');
+  }
+
+  // Send an outbound client message (e.g. typing indicator, reaction).
+  send(msg: object) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
   }
 }

@@ -104,6 +104,7 @@ See `.env.example` for the full list and safe placeholders. Key variables:
 | `OPENCODE_BASE_URL` | yes* | OpenCode Zen base URL |
 | `AI_LAWYER_MODEL` | no** | Model for the private Lawyer assistant |
 | `AI_JUDGE_MODEL` | no** | Model for the Judge evaluation |
+| `AI_FACT_CHECKER_MODEL` | no** | Model for the per-message Fact-Checker |
 | `RESEND_API_KEY` | yes | Resend key for transactional email |
 | `EMAIL_FROM` | yes | Verified Resend sender address |
 | `AI_MAX_TOKENS_PER_REQUEST` | no | Cap per AI call (default 4096) |
@@ -124,9 +125,31 @@ terms allow private debate data to be retained or used for training.
 4. Take turns posting messages; confirm the turn advances and the transcript
    updates live over the WebSocket (watch the "Connection:" indicator).
 5. Try the **Private Lawyer** panel, **pin evidence**, and **pause/resume/cancel**.
-6. **Complete** the debate → open the **Judge report** → **Run Judge** →
-   **Download export (JSON)**.
-7. Re-import an export at `/imports/new` (a >5 MB file is rejected client-side).
+6. While typing, the opponent sees a "typing…" indicator; send emoji **reactions**
+   from the composer and watch them pop in the transcript.
+7. On any message, click **Fact-check** to run the Fact-Checker agent; verdicts
+   and per-claim findings appear inline. An "AI is thinking…" badge shows while
+   the Lawyer or Judge is working.
+8. **Complete** the debate → open the **Judge report** → **Run Judge** →
+   **Download PDF** or **Download export (JSON)**.
+9. Re-import an export at `/imports/new` (a >5 MB file is rejected client-side).
+10. As an admin, open **/analytics** for outcome distribution, win rates,
+    confidence trend, and common fallacies.
+
+## Features
+
+- **Debates**: turn-based, timed, with raise-hand, pause/resume/cancel.
+- **Private Lawyer**: per-participant coaching, grounded by server-side tools
+  (evidence lookup + argument scoring) — no reliance on provider tool-calling.
+- **Judge**: structured evaluation with scores, fallacies, and moderation flags.
+- **Fact-Checker**: per-message claim verification (AI tokens only).
+- **Real-time**: WebSocket presence, typing indicators, emoji reactions, and
+  "AI thinking" states.
+- **Export**: JSON (server) and PDF (client-side, via jspdf).
+- **Analytics**: outcome/win-rate/fallacy aggregates from judge reports (no
+  third-party analytics).
+- **Abuse prevention**: in-memory sliding-window rate limiting on auth and AI
+  routes (no Redis required for single-instance deployments).
 
 ## Project layout
 
