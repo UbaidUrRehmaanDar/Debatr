@@ -1,8 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getAuth } from '../auth/index.js';
 import { getDb } from '../db/index.js';
-import { users, invitations } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { invitations } from '../db/schema/index.js';
 import { randomUUID } from 'crypto';
 import { sendEmail } from '../email/index.js';
 import { config } from '../config/env.js';

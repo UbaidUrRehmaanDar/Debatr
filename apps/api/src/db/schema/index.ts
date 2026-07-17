@@ -58,7 +58,7 @@ export const invitations = pgTable('invitations', {
   code: text('code').notNull().unique(),
   email: text('email').notNull(), // Target email for the invitation
   createdBy: text('created_by').references(() => users.id).notNull(),
-  usedBy: text('used_by').references(() => users.id),
+  usedBy: text('used_by').references(() => users.id).unique(),
   usedAt: timestamp('used_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -179,10 +179,41 @@ export const moderationEvents = pgTable('moderation_events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Raise-hand requests (a participant may request to speak during the
+// opponent's turn; granting is an explicit, auditable decision — see FLOW.md)
+export const raiseHandRequests = pgTable('raise_hand_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
+  requesterId: text('requester_id').references(() => users.id).notNull(),
+  side: text('side', { enum: ['affirmative', 'negative'] }).notNull(),
+  status: text('status', { enum: ['pending', 'granted', 'declined', 'expired'] }).notNull().default('pending'),
+  decidedById: text('decided_by_id').references(() => users.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Pinned facts/evidence. Participants may pin claims, sources, or statistics
+// they want the AI to treat as supplied context (docs/SPEC.md: evidence
+// integrity). The AI must not invent these; they are user-directed.
+export const evidence = pgTable('evidence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
+  pinnedById: text('pinned_by_id').references(() => users.id).notNull(),
+  side: text('side', { enum: ['affirmative', 'negative', 'neutral'] }).notNull().default('neutral'),
+  claim: text('claim').notNull(),
+  source: text('source'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Exports/Imports tracking
 export const exports = pgTable('exports', {
   id: uuid('id').primaryKey().defaultRandom(),
-  debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }).notNull(),
+  // Linked debate (nullable): imports are reference material and are NOT tied
+  // to an arbitrary debate. The untrusted origin id from the upload is kept in
+  // sourceDebateId for provenance only (no FK), never as a foreign key.
+  debateId: uuid('debate_id').references(() => debates.id, { onDelete: 'cascade' }),
+  sourceDebateId: text('source_debate_id'),
   createdBy: text('created_by').references(() => users.id).notNull(),
   includeLawyerLogs: boolean('include_lawyer_logs').notNull().default(false),
   data: jsonb('data').notNull(), // Full export data

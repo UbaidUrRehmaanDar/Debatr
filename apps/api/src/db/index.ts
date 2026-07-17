@@ -6,6 +6,11 @@ import * as schema from './schema/index.js';
 let client: postgres.Sql | null = null;
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
+// A drizzle postgres-js instance (or a transaction handle, which is the same
+// shape). Used by engine functions so callers can pass a transaction in.
+type TransactionHandle = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
+export type Db = ReturnType<typeof getDb> | TransactionHandle;
+
 export async function connect() {
   if (client) {
     return db!;

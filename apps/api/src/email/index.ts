@@ -20,7 +20,13 @@ export interface EmailMessage {
   html?: string;
 }
 
-export async function sendEmail(message: EmailMessage): Promise<void> {
+// The actual transport. Defaults to the Resend client but can be swapped (e.g.
+// in tests) via setEmailSender so we can assert email flows without delivering
+// real mail.
+type Sender = (message: EmailMessage) => Promise<void>;
+let sender: Sender = sendViaResend;
+
+async function sendViaResend(message: EmailMessage): Promise<void> {
   const { error } = await getClient().emails.send({
     from: config.emailFrom,
     to: message.to,
@@ -32,4 +38,13 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
   if (error) {
     throw new Error(`Failed to send email to ${message.to}: ${error.message}`);
   }
+}
+
+/** Override the email transport (used by tests). */
+export function setEmailSender(next: Sender | null): void {
+  sender = next ?? sendViaResend;
+}
+
+export async function sendEmail(message: EmailMessage): Promise<void> {
+  await sender(message);
 }

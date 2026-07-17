@@ -1,8 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getAuth } from '../auth/index.js';
 import { getDb } from '../db/index.js';
-import { users, invitations } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { invitations } from '../db/schema/index.js';
+import { eq, and, sql } from 'drizzle-orm';
 
 interface SignUpBody {
   email: string;
@@ -16,15 +16,31 @@ interface SignInBody {
   password: string;
 }
 
+// Client-error thrown for expected invitation problems (handled distinctly from
+// unexpected 500s in the signup catch block).
+class InvitationError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 // Better Auth sets the session cookie on its response object. Forward any
 // Set-Cookie headers it produced onto the Fastify reply so the browser keeps
 // the session.
 function forwardAuthCookies(result: any, reply: FastifyReply) {
   const headers: Headers | undefined = result?.response?.headers;
   if (!headers) return;
-  const setCookie = headers.get('set-cookie');
-  if (setCookie) {
-    reply.header('set-cookie', setCookie);
+  // A Headers object may carry multiple `set-cookie` entries; `.get()` only
+  // returns the first, which would silently drop Better Auth's other cookies.
+  const all: string[] =
+    typeof (headers as any).getSetCookie === 'function'
+      ? (headers as any).getSetCookie()
+      : (headers.get('set-cookie') ? [headers.get('set-cookie') as string] : []);
+  if (all.length) {
+    // Fastify accepts an array and emits one Set-Cookie header per entry.
+    reply.header('set-cookie', all);
   }
 }
 
@@ -32,53 +48,58 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
   // Sign up with invitation code
   fastify.post('/api/auth/signup', async (request: FastifyRequest<{ Body: SignUpBody }>, reply: FastifyReply) => {
     const { email, password, name, invitationCode } = request.body;
-    
-    // Validate invitation code
     const db = getDb();
-    const invitation = await db.query.invitations.findFirst({
-      where: eq(invitations.code, invitationCode),
-    });
-    
-    if (!invitation) {
-      return reply.status(400).send({ error: 'Invalid invitation code' });
-    }
-    
-    if (invitation.usedBy) {
-      return reply.status(400).send({ error: 'Invitation already used' });
-    }
-    
-    if (invitation.expiresAt < new Date()) {
-      return reply.status(400).send({ error: 'Invitation expired' });
-    }
-    
-    if (invitation.email !== email) {
-      return reply.status(400).send({ error: 'Invitation email does not match' });
-    }
-    
     const auth = getAuth();
 
+    // Atomically claim the invitation. We lock the invitation row (FOR UPDATE)
+    // inside a transaction and mark it used only after the user is created, so
+    // two concurrent signups with the same code cannot both succeed — the
+    // loser's conditional UPDATE affects 0 rows and we roll back. This prevents
+    // a single invitation code from minting unlimited accounts.
     try {
-      // Create user via Better Auth
-      const result: any = await auth.api.signUpEmail({
-        body: {
-          email,
-          password,
-          name,
-        },
-        headers: request.headers as any,
+      const result: any = await db.transaction(async (tx) => {
+        const [invitation] = await tx
+          .select()
+          .from(invitations)
+          .where(eq(invitations.code, invitationCode))
+          .for('update');
+
+        if (!invitation) {
+          throw new InvitationError('Invalid invitation code', 400);
+        }
+        if (invitation.usedBy) {
+          throw new InvitationError('Invitation already used', 400);
+        }
+        if (invitation.expiresAt < new Date()) {
+          throw new InvitationError('Invitation expired', 400);
+        }
+        if (invitation.email !== email) {
+          throw new InvitationError('Invitation email does not match', 400);
+        }
+
+        // Create user via Better Auth (shares the same db transaction client).
+        const created: any = await auth.api.signUpEmail({
+          body: { email, password, name },
+          headers: request.headers as any,
+        });
+
+        if (!created?.user) {
+          throw new Error('Failed to create user');
+        }
+
+        // Claim the invitation atomically; if 0 rows, another request won the
+        // race and we abort the transaction (the user insert is rolled back).
+        const [claimed] = await tx.update(invitations)
+          .set({ usedBy: created.user.id, usedAt: new Date() })
+          .where(and(eq(invitations.id, invitation.id), eq(invitations.usedBy, sql`NULL`)))
+          .returning();
+
+        if (!claimed) {
+          throw new InvitationError('Invitation already used', 400);
+        }
+
+        return created;
       });
-
-      if (!result?.user) {
-        return reply.status(400).send({ error: 'Failed to create user' });
-      }
-
-      // Mark invitation as used
-      await db.update(invitations)
-        .set({
-          usedBy: result.user.id,
-          usedAt: new Date(),
-        })
-        .where(eq(invitations.id, invitation.id));
 
       // Forward Better Auth's session Set-Cookie header if present
       forwardAuthCookies(result, reply);
@@ -93,6 +114,9 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         message: 'Account created.',
       });
     } catch (error) {
+      if (error instanceof InvitationError) {
+        return reply.status(error.status).send({ error: error.message });
+      }
       fastify.log.error('Signup error: ' + (error as Error).message);
       return reply.status(500).send({ error: 'Failed to create account' });
     }
@@ -135,11 +159,14 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     const auth = getAuth();
     
     try {
-      await auth.api.signOut({
+      // signOut returns a Response whose headers expire Better Auth's real
+      // session cookie. Forward those (multi-cookie safe) instead of manually
+      // clearing a cookie name we don't control.
+      const result = await auth.api.signOut({
         headers: request.headers as any,
+        asResponse: true,
       });
-      
-      reply.clearCookie('auth-session', { path: '/' });
+      forwardAuthCookies({ response: result }, reply);
       return reply.send({ success: true });
     } catch (error) {
       fastify.log.error('Signout error: ' + (error as Error).message);
@@ -214,6 +241,22 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error('Reset password error: ' + (error as Error).message);
       return reply.status(400).send({ error: 'Invalid or expired reset token' });
+    }
+  });
+
+  // Verify email (Better Auth: GET /verify-email?token=...)
+  fastify.get('/api/auth/verify-email', async (request: FastifyRequest<{ Querystring: { token?: string } }>, reply: FastifyReply) => {
+    const { token } = request.query;
+    if (!token) {
+      return reply.status(400).send({ error: 'Missing verification token' });
+    }
+    const auth = getAuth();
+    try {
+      await auth.api.verifyEmail({ query: { token } });
+      return reply.send({ success: true });
+    } catch (error) {
+      fastify.log.error('Verify email error: ' + (error as Error).message);
+      return reply.status(400).send({ error: 'Invalid or expired verification token' });
     }
   });
 }

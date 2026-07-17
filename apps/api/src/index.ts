@@ -1,35 +1,36 @@
 import { config } from './config/env.js';
 import { connect, disconnect } from './db/index.js';
-import { init as initAuth, getAuth } from './auth/index.js';
+import { init as initAuth } from './auth/index.js';
 import { registerRoutes } from './routes/index.js';
 import { initWebSocket } from './websocket/index.js';
+import { logger } from './observability/logger.js';
 
 async function main() {
-  console.log('Starting Debatr API...');
+  logger.info('Starting Debatr API...');
 
   // Validate configuration
   if (!config.load() || !config.validate()) {
-    console.error('Configuration validation failed. Check environment variables.');
+    logger.error('Configuration validation failed. Check environment variables.');
     process.exit(1);
   }
 
-  console.log('Configuration validated successfully');
+  logger.info('Configuration validated successfully');
 
   // Initialize database connection
   try {
     await connect();
-    console.log('Database connected');
+    logger.info('Database connected');
   } catch (error) {
-    console.error('Failed to connect to database:', (error as Error).message);
+    logger.error('Failed to connect to database', { error });
     process.exit(1);
   }
 
   // Initialize authentication
   try {
     await initAuth();
-    console.log('Authentication initialized');
+    logger.info('Authentication initialized');
   } catch (error) {
-    console.error('Failed to initialize auth:', (error as Error).message);
+    logger.error('Failed to initialize auth', { error });
     process.exit(1);
   }
 
@@ -45,15 +46,15 @@ async function main() {
 
   try {
     await fastify.listen({ port, host });
-    console.log(`Debatr API listening on ${host}:${port}`);
+    logger.info('Debatr API listening', { host, port });
   } catch (error) {
-    console.error('Failed to start server:', (error as Error).message);
+    logger.error('Failed to start server', { error });
     process.exit(1);
   }
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    console.log(`Received ${signal}, shutting down gracefully...`);
+    logger.info('Received signal, shutting down gracefully', { signal });
     await fastify.close();
     await disconnect();
     process.exit(0);
@@ -64,6 +65,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Unhandled error during startup:', error);
+  logger.error('Unhandled error during startup', { error });
   process.exit(1);
 });

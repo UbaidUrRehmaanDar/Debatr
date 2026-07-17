@@ -43,6 +43,9 @@ const envSchema = z.object({
   AI_MAX_TOKENS_PER_DEBATE: z.string().transform(Number).default('50000'),
   AI_REQUEST_TIMEOUT_MS: z.string().transform(Number).default('30000'),
   AI_MAX_RETRIES: z.string().transform(Number).default('3'),
+  // Optional cost estimate input: USD per 1,000 tokens (prompt + completion
+  // combined). Leave unset to report token totals only (no fabricated cost).
+  AI_COST_PER_1K_TOKENS: z.string().transform(Number).optional(),
   
   // Debate settings (defaults)
   DEBATE_DEFAULT_ROUNDS: z.string().transform(Number).default('4'),
@@ -134,6 +137,10 @@ class Config {
   
   get aiMaxRetries(): number {
     return this.config!.AI_MAX_RETRIES;
+  }
+
+  get aiCostPer1kTokens(): number | undefined {
+    return this.config!.AI_COST_PER_1K_TOKENS;
   }
 
   get resendApiKey(): string {

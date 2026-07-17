@@ -7,6 +7,7 @@ import { registerAuthRoutes } from './auth.js';
 import { registerDebateRoutes } from './debates.js';
 import { registerInvitationRoutes } from './invitations.js';
 import { registerAdminRoutes } from './admin.js';
+import { registerExportRoutes } from './exports_routes.js';
 
 export async function registerRoutes(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -31,6 +32,7 @@ export async function registerRoutes(): Promise<FastifyInstance> {
   await registerDebateRoutes(fastify);
   await registerInvitationRoutes(fastify);
   await registerAdminRoutes(fastify);
+  await registerExportRoutes(fastify);
 
   return fastify;
 }

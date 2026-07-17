@@ -30,23 +30,28 @@ export async function init() {
       // verify before fully participating; signup still succeeds, verification
       // email is sent automatically.
       requireEmailVerification: true,
-      sendResetPassword: async ({ user, url, token }, request) => {
+      sendResetPassword: async ({ user, token }) => {
+        // Rewrite the reset link to the web app's reset-password page.
+        const resetUrl = `${config.webOrigin}/reset-password?token=${token}`;
         await sendEmail({
           to: user.email,
           subject: 'Reset your Debatr password',
-          text: `Reset your Debatr password using the link below. It expires soon:\n\n${url}`,
-          html: `<p>Reset your Debatr password using the link below. It expires soon:</p><p><a href="${url}">${url}</a></p>`,
+          text: `Reset your Debatr password using the link below. It expires soon:\n\n${resetUrl}`,
+          html: `<p>Reset your Debatr password using the link below. It expires soon:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
         });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
-      sendVerificationEmail: async ({ user, url, token }, request) => {
+      sendVerificationEmail: async ({ user, token }) => {
+        // Better Auth builds `url` on the API origin; our verify UI lives on the
+        // web app, so rewrite the link to the web origin's verify-email page.
+        const verifyUrl = `${config.webOrigin}/verify-email?token=${token}`;
         await sendEmail({
           to: user.email,
           subject: 'Verify your Debatr email',
-          text: `Welcome to Debatr. Verify your email to activate your account:\n\n${url}`,
-          html: `<p>Welcome to Debatr. Verify your email to activate your account:</p><p><a href="${url}">${url}</a></p>`,
+          text: `Welcome to Debatr. Verify your email to activate your account:\n\n${verifyUrl}`,
+          html: `<p>Welcome to Debatr. Verify your email to activate your account:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
         });
       },
     },

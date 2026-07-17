@@ -1,9 +1,12 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { hashPassword } from 'better-auth/crypto';
+import { getAuth } from '../auth/index.js';
 import { getDb } from '../db/index.js';
 import { users, accounts } from '../db/schema/index.js';
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { getAiUsageDashboard } from '../ai/usage.js';
+import { logger } from '../observability/logger.js';
 
 interface CreateAdminBody {
   email: string;
@@ -11,7 +14,48 @@ interface CreateAdminBody {
   name: string;
 }
 
+// Require an authenticated admin session. Returns the user or sends 401/403.
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
+  const auth = getAuth();
+  const session = await auth.api.getSession({ headers: request.headers as any });
+  const user = session?.user as { id: string; role?: string } | null;
+  if (!user) {
+    reply.code(401).send({ error: 'Not authenticated' });
+    return null;
+  }
+  if (user.role !== 'admin') {
+    reply.code(403).send({ error: 'Admin access required' });
+    return null;
+  }
+  return user;
+}
+
 export async function registerAdminRoutes(fastify: FastifyInstance) {
+  // AI cost / usage dashboard aggregated from the `aiUsage` table.
+  fastify.get('/api/admin/ai-usage', async (request: FastifyRequest<{ Querystring: { since?: string } }>, reply: FastifyReply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) return;
+
+    let since: Date | undefined;
+    if (request.query.since) {
+      const parsed = new Date(request.query.since);
+      if (!isNaN(parsed.getTime())) {
+        since = parsed;
+      } else {
+        return reply.status(400).send({ error: 'Invalid "since" query (expected ISO date)' });
+      }
+    }
+
+    try {
+      const dashboard = await getAiUsageDashboard(since);
+      logger.info('admin.ai_usage_viewed', { adminId: admin.id, since: since?.toISOString() });
+      return reply.send(dashboard);
+    } catch (error) {
+      logger.error('admin.ai_usage_failed', { adminId: admin.id, error });
+      return reply.status(500).send({ error: 'Failed to build usage dashboard' });
+    }
+  });
+
   // Bootstrap the first administrator. Only works when zero users exist, so it
   // cannot be abused after the system has an admin. Inserts the user and a
   // password-hashed accounts row directly (Better Auth's createUser endpoint

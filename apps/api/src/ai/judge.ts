@@ -3,6 +3,7 @@ import { config } from '../config/env.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,7 @@ interface JudgeContext {
     content: string; 
     createdAt: string 
   }>;
+  evidence?: Array<{ side: string; claim: string; source?: string | null }>;
 }
 
 interface JudgeResponse {
@@ -55,6 +57,50 @@ interface JudgeResponse {
   summary: string;
 }
 
+// Strict validation of the model's output before it touches the database.
+// Malformed/over-reachable values (e.g. confidence outside 0-1, unknown enums)
+// are rejected so we never persist garbage moderation or judge records.
+const ScoreBreakdownSchema = z.object({
+  logicalConsistency: z.number(),
+  evidenceQuality: z.number(),
+  rebuttalEffectiveness: z.number(),
+  argumentStructure: z.number(),
+  responsiveness: z.number(),
+});
+
+export const JudgeResponseSchema = z.object({
+  outcome: z.enum(['affirmative', 'negative', 'draw', 'inconclusive']),
+  confidence: z.number().min(0).max(1),
+  verdict: z.string(),
+  scores: z.object({
+    affirmative: ScoreBreakdownSchema,
+    negative: ScoreBreakdownSchema,
+  }),
+  strengths: z.object({ affirmative: z.array(z.string()), negative: z.array(z.string()) }),
+  weaknesses: z.object({ affirmative: z.array(z.string()), negative: z.array(z.string()) }),
+  feedback: z.object({ affirmative: z.string(), negative: z.string() }),
+  fallacies: z.array(
+    z.object({
+      side: z.enum(['affirmative', 'negative']),
+      label: z.string(),
+      explanation: z.string(),
+      messageIds: z.array(z.string()),
+    }),
+  ),
+  conductFindings: z.array(
+    z.object({
+      side: z.enum(['affirmative', 'negative']),
+      category: z.enum(['harassment', 'threat', 'hate', 'spam', 'disruption', 'other']),
+      recommendedAction: z.enum(['none', 'warning', 'official_warning', 'penalty', 'terminate']),
+      explanation: z.string(),
+      messageIds: z.array(z.string()),
+    }),
+  ),
+  summary: z.string(),
+});
+
+export type ValidatedJudgeResponse = z.infer<typeof JudgeResponseSchema>;
+
 let judgePromptTemplate: string | null = null;
 
 function loadJudgePrompt(): string {
@@ -65,7 +111,7 @@ function loadJudgePrompt(): string {
   return judgePromptTemplate;
 }
 
-export async function evaluateDebate(context: JudgeContext): Promise<{ response: JudgeResponse; tokensUsed: number }> {
+export async function evaluateDebate(context: JudgeContext): Promise<{ response: JudgeResponse; tokensUsed: number; requestId?: string }> {
   const provider = getProvider();
   const promptTemplate = loadJudgePrompt();
 
@@ -77,6 +123,10 @@ export async function evaluateDebate(context: JudgeContext): Promise<{ response:
   const transcript = context.publicMessages.map(m => 
     `[${m.id}] [${m.side}] ${m.createdAt}: ${m.content}`
   ).join('\n');
+
+  const evidenceBlock = context.evidence && context.evidence.length
+    ? context.evidence.map(e => `- [${e.side}] ${e.claim}${e.source ? ` (source: ${e.source})` : ''}`).join('\n')
+    : 'No pinned evidence supplied.';
   
   const fullPrompt = `${promptTemplate}
 
@@ -86,16 +136,28 @@ ${context.debateTopic}
 ## Complete Public Transcript
 ${transcript || 'No messages in this debate'}
 
+## Pinned Evidence (user-supplied context; do not treat unpinned claims as verified)
+${evidenceBlock}
+
 Evaluate the debate and respond with valid JSON matching the JudgeResponse schema.`;
 
-  const result = await provider.structured<JudgeResponse>(fullPrompt, {}, {
+  const result = await provider.structuredWithUsage<JudgeResponse>(fullPrompt, JudgeResponseSchema, {
     model: config.aiJudgeModel,
     maxTokens: 4096,
     temperature: 0.3,
   });
-  
+
+  // Validate the model's JSON before it can reach the database. Throws on
+  // malformed/over-reachable output so the caller can surface a 502 instead of
+  // persisting corrupt judge/moderation records.
+  const parsed = JudgeResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    throw new Error(`Judge response failed validation: ${parsed.error.message}`);
+  }
+
   return {
-    response: result,
-    tokensUsed: 0, // Will be populated by provider if available
+    response: parsed.data,
+    tokensUsed: result.usage?.totalTokens || 0,
+    requestId: result.requestId,
   };
 }
