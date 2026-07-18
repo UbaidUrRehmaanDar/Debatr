@@ -4,6 +4,12 @@ import { init as initAuth } from './auth/index.js';
 import { registerRoutes } from './routes/index.js';
 import { initWebSocket } from './websocket/index.js';
 import { logger } from './observability/logger.js';
+import { setServers } from 'node:dns';
+
+// Override DNS servers for environments where the system DNS cannot resolve
+// Neon hostnames (e.g. corporate VPNs, routers with restricted DNS). Google's
+// public DNS is a reliable fallback for cloud PostgreSQL connections.
+setServers(['8.8.8.8', '8.8.4.4']);
 
 async function main() {
   logger.info('Starting Debatr API...');

@@ -41,15 +41,15 @@ export const LawyerResponseSchema = z.object({
     'safe_refusal',
   ]),
   advice: z.string(),
-  uncertainty: z.string().optional(),
+  uncertainty: z.string().nullish(),
   evidenceSuggestions: z.array(
     z.object({
       claim: z.string(),
       verificationNeeded: z.string(),
-      providedSourceMessageId: z.string().optional(),
+      providedSourceMessageId: z.string().nullish(),
     }),
   ),
-  referencedMessageIds: z.array(z.string()).optional(),
+  referencedMessageIds: z.array(z.string()).nullish(),
   conductConcern: z.enum([
     'none',
     'possible_harassment',
@@ -122,26 +122,28 @@ ${toolBlock}
 ## Participant's Request
 ${context.participantRequest}
 
-Respond with valid JSON matching the LawyerResponse schema.`;
+Respond with valid JSON using this exact schema:
+{
+  "assistanceType": "supporting_argument | rebuttal | counterargument | clarity_improvement | weakness_identification | evidence_suggestion | summary | safe_refusal",
+  "advice": "string — your main advice text",
+  "uncertainty": "optional string or null",
+  "evidenceSuggestions": [
+    { "claim": "string", "verificationNeeded": "string", "providedSourceMessageId": "optional string or null" }
+  ],
+  "referencedMessageIds": ["optional array of strings or null"],
+  "conductConcern": "none | possible_harassment | possible_threat | possible_hate | possible_harm | other"
+}`;
 
-  const result = await provider.complete(fullPrompt, {
+  const result = await provider.structuredWithUsage<z.infer<typeof LawyerResponseSchema>>(fullPrompt, LawyerResponseSchema, {
     model: config.aiLawyerModel,
-    // Respect the operator-configured per-request cap; never exceed it.
-    maxTokens: Math.min(2048, config.aiMaxTokensPerRequest),
+    maxTokens: Math.min(4096, config.aiMaxTokensPerRequest),
     temperature: 0.7,
   });
-  
+
   // Parse and strictly validate the response as JSON before returning it. A
   // malformed or prompt-injection-shaped payload fails validation and surfaces
   // as a 502 rather than persisting corrupt data.
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(result.content);
-  } catch (error) {
-    throw new Error(`Failed to parse Lawyer AI response: ${error}`);
-  }
-
-  const validated = LawyerResponseSchema.safeParse(parsed);
+  const validated = LawyerResponseSchema.safeParse(result.data);
   if (!validated.success) {
     throw new Error(`Lawyer response failed validation: ${validated.error.message}`);
   }
