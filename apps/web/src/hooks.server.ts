@@ -8,11 +8,22 @@ import type { Handle } from '@sveltejs/kit';
 export const handle: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
 
+  // Apply security headers defensively. Proxied /api responses can carry
+  // immutable headers (e.g. from the Fastify backend), where .set() throws
+  // "immutable"; guard so an upstream header quirk never 500s the page.
+  const setHeader = (key: string, value: string) => {
+    try {
+      response.headers.set(key, value);
+    } catch {
+      /* header is immutable or not settable — leave as-is */
+    }
+  };
+
   // Never cache authenticated or app pages.
-  response.headers.set('cache-control', 'no-store');
-  response.headers.set('x-content-type-options', 'nosniff');
-  response.headers.set('referrer-policy', 'no-referrer');
-  response.headers.set('x-frame-options', 'DENY');
+  setHeader('cache-control', 'no-store');
+  setHeader('x-content-type-options', 'nosniff');
+  setHeader('referrer-policy', 'no-referrer');
+  setHeader('x-frame-options', 'DENY');
 
   return response;
 };

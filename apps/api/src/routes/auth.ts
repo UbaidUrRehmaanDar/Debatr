@@ -27,18 +27,18 @@ class InvitationError extends Error {
   }
 }
 
-// Better Auth sets the session cookie on its response object. Forward any
-// Set-Cookie headers it produced onto the Fastify reply so the browser keeps
-// the session.
-function forwardAuthCookies(result: any, reply: FastifyReply) {
-  const headers: Headers | undefined = result?.response?.headers;
-  if (!headers) return;
-  // A Headers object may carry multiple `set-cookie` entries; `.get()` only
-  // returns the first, which would silently drop Better Auth's other cookies.
+// Better Auth's API calls (signInEmail, signUpEmail, signOut) only attach the
+// session Set-Cookie when invoked with `asResponse: true`, which returns a
+// standard Response object. Forward every Set-Cookie it produced onto the
+// Fastify reply so the browser keeps the session.
+function forwardAuthCookies(response: Response | undefined, reply: FastifyReply) {
+  if (!response) return;
   const all: string[] =
-    typeof (headers as any).getSetCookie === 'function'
-      ? (headers as any).getSetCookie()
-      : (headers.get('set-cookie') ? [headers.get('set-cookie') as string] : []);
+    typeof (response as any).getSetCookie === 'function'
+      ? (response as any).getSetCookie()
+      : (response.headers.get('set-cookie')
+          ? [response.headers.get('set-cookie') as string]
+          : []);
   if (all.length) {
     // Fastify accepts an array and emits one Set-Cookie header per entry.
     reply.header('set-cookie', all);
@@ -80,10 +80,14 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         }
 
         // Create user via Better Auth (shares the same db transaction client).
-        const created: any = await auth.api.signUpEmail({
+        // asResponse:true returns a Response so we can forward the session
+        // Set-Cookie and read the created user from the JSON body.
+        const createdRes: Response = await auth.api.signUpEmail({
           body: { email, password, name },
           headers: request.headers as any,
+          asResponse: true,
         });
+        const created: any = await createdRes.json();
 
         if (!created?.user) {
           throw new Error('Failed to create user');
@@ -131,16 +135,19 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
     const auth = getAuth();
     
     try {
-      const result: any = await auth.api.signInEmail({
+      const resultRes: Response = await auth.api.signInEmail({
         body: { email, password },
         headers: request.headers as any,
+        asResponse: true,
       });
-      
+
+      const result: any = await resultRes.json();
+
       if (!result?.user) {
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
-      
-      forwardAuthCookies(result, reply);
+
+      forwardAuthCookies(resultRes, reply);
       
       return reply.send({
         user: {
@@ -168,7 +175,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         headers: request.headers as any,
         asResponse: true,
       });
-      forwardAuthCookies({ response: result }, reply);
+      forwardAuthCookies(result, reply);
       return reply.send({ success: true });
     } catch (error) {
       fastify.log.error('Signout error: ' + (error as Error).message);
