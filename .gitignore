@@ -54,3 +54,7 @@ nul
 
 # claude local settings
 docs/.claude/settings.local.json
+
+# build logs
+build.log
+*.log
