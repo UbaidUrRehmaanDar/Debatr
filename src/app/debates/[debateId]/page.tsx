@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { api } from "@/lib/trpc-client"
 
@@ -22,6 +22,8 @@ export default function DebateDetailPage() {
   const debateId = typeof params.debateId === "string" ? params.debateId : params.debateId?.[0]
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState<number>(0)
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "reconnecting">("connected")
 
   const { data: debate, isLoading, error, refetch } = api.debates.get.useQuery(
     { debateId: debateId ?? "" },
@@ -68,6 +70,11 @@ export default function DebateDetailPage() {
     onError: (err) => console.error("Failed to raise hand:", err),
   })
 
+  const decideRaiseHand = api.debates.decideRaiseHand.useMutation({
+    onSuccess: () => refetch(),
+    onError: (err) => console.error("Failed to decide raise hand:", err),
+  })
+
   const factCheckMessage = api.debates.factCheckMessage.useMutation({
     onSuccess: (data, variables) => {
       setFactCheckResults(prev => ({
@@ -88,6 +95,22 @@ export default function DebateDetailPage() {
         [variables.messageId]: err.message || "Failed to fact-check. Please try again."
       }))
     },
+  })
+
+  const pinEvidence = api.evidence.pin.useMutation({
+    onSuccess: () => {
+      setEvidenceClaim("")
+      setEvidenceSource("")
+      refetch()
+    },
+    onError: (err) => {
+      console.error("Failed to pin evidence:", err)
+    },
+  })
+
+  const removeEvidence = api.evidence.remove.useMutation({
+    onSuccess: () => refetch(),
+    onError: (err) => console.error("Failed to remove evidence:", err),
   })
 
   const exportDebate = api.exports.exportDebate.useMutation({
@@ -111,6 +134,10 @@ export default function DebateDetailPage() {
   const [lawyerError, setLawyerError] = useState("")
   const [factCheckResults, setFactCheckResults] = useState<Record<string, any>>({})
   const [factCheckErrors, setFactCheckErrors] = useState<Record<string, string>>({})
+  const [showEvidencePanel, setShowEvidencePanel] = useState(false)
+  const [evidenceClaim, setEvidenceClaim] = useState("")
+  const [evidenceSource, setEvidenceSource] = useState("")
+  const [evidenceSide, setEvidenceSide] = useState<"affirmative" | "negative" | "neutral">("neutral")
 
   async function handlePostMessage(e: React.FormEvent) {
     e.preventDefault()
@@ -140,12 +167,21 @@ export default function DebateDetailPage() {
   if (!debateId || error || (!isLoading && !debate)) {
     return (
       <main className="page-content page-enter">
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
-          <p style={{ color: "var(--destructive)", fontSize: 14 }}>
-            {!debateId ? "Invalid debate ID" : "Failed to load debate"}
+        <div className="empty-state" style={{ paddingBlock: 64 }}>
+          <div className="empty-state-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+          </div>
+          <div className="empty-state-title">
+            {!debateId ? "Invalid Debate ID" : error ? "Error Loading Debate" : "Debate Not Found"}
+          </div>
+          <p className="empty-state-desc">
+            {!debateId ? "The debate ID provided is invalid." : error ? "There was an error loading this debate. Please try again." : "This debate may have been deleted or you don't have access to it."}
           </p>
-          <Link href="/debates" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-            Back to debates
+          <Link href="/debates" className="btn btn-primary">
+            Back to Debates
           </Link>
         </div>
       </main>
@@ -155,7 +191,11 @@ export default function DebateDetailPage() {
   if (isLoading) {
     return (
       <main className="page-content page-enter">
-        <div className="spinner" />
+        <div className="empty-state" style={{ paddingBlock: 64 }}>
+          <div className="spinner" />
+          <div className="empty-state-title" style={{ marginTop: 16 }}>Loading Debate</div>
+          <p className="empty-state-desc">Please wait while we load the debate data...</p>
+        </div>
       </main>
     )
   }
@@ -163,6 +203,44 @@ export default function DebateDetailPage() {
   const activeTurn = debate!.turns.find((t: { status: string }) => t.status === "active")
   const currentUserParticipant = debate!.participants.find((p: { user: { id: string } }) => p.user.id === session?.user?.id)
   const isUsersTurn = activeTurn?.participantId === currentUserParticipant?.id
+
+  // Timer countdown logic
+  useEffect(() => {
+    if (!activeTurn || debate!.status !== "active") {
+      setTimeRemaining(0)
+      return
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = new Date().getTime()
+      const startTime = new Date(activeTurn.startTime).getTime()
+      const duration = debate!.roundDurationMs
+      const elapsed = now - startTime
+      const remaining = Math.max(0, duration - elapsed)
+      return remaining
+    }
+
+    setTimeRemaining(calculateTimeRemaining())
+
+    const interval = setInterval(() => {
+      const remaining = calculateTimeRemaining()
+      setTimeRemaining(remaining)
+      
+      if (remaining <= 0) {
+        clearInterval(interval)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [activeTurn, debate!.status, debate!.roundDurationMs])
+
+  // Format time as MM:SS
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
 
   const statusLabel = {
     active: "Active",
@@ -300,8 +378,19 @@ export default function DebateDetailPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {debate!.messages.length === 0 ? (
                 <div className="empty-state" style={{ paddingBlock: 40 }}>
+                  <div className="empty-state-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </div>
                   <div className="empty-state-title">No messages yet</div>
-                  <p className="empty-state-desc">Start the debate!</p>
+                  <p className="empty-state-desc">
+                    {debate!.status === "waiting_for_participants" 
+                      ? "Waiting for both participants to join the debate." 
+                      : debate!.status === "active" 
+                        ? "The debate hasn't started yet. Be the first to speak!" 
+                        : "No messages in this debate."}
+                  </p>
                 </div>
               ) : (
                 debate!.messages.map((msg: { id: string; side: string; sender: { name: string | null }; content: string }) => (
@@ -384,6 +473,40 @@ export default function DebateDetailPage() {
             </div>
           </div>
 
+          {/* Debate Status Info */}
+          {debate!.status === "waiting_for_participants" && (
+            <div className="card" style={{ padding: "16px", background: "rgba(98,174,240,0.08)", border: "1px solid rgba(98,174,240,0.2)" }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--notion-accent-sky)", marginBottom: 8 }}>
+                ⏳ Waiting for Participants
+              </div>
+              <p style={{ fontSize: 12, color: "var(--foreground)", lineHeight: 1.5 }}>
+                Both participants need to join before the debate can begin. Share the debate link with your opponent to get started.
+              </p>
+            </div>
+          )}
+
+          {debate!.status === "paused" && (
+            <div className="card" style={{ padding: "16px", background: "rgba(221,91,0,0.08)", border: "1px solid rgba(221,91,0,0.2)" }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--notion-accent-orange)", marginBottom: 8 }}>
+                ⏸️ Debate Paused
+              </div>
+              <p style={{ fontSize: 12, color: "var(--foreground)", lineHeight: 1.5 }}>
+                The debate has been paused. A participant can resume it when ready to continue.
+              </p>
+            </div>
+          )}
+
+          {debate!.status === "judging" && !debate!.judgeReport && (
+            <div className="card" style={{ padding: "16px", background: "rgba(214,182,246,0.08)", border: "1px solid rgba(214,182,246,0.2)" }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--notion-accent-purple)", marginBottom: 8 }}>
+                ⚖️ Awaiting Judge Report
+              </div>
+              <p style={{ fontSize: 12, color: "var(--foreground)", lineHeight: 1.5 }}>
+                The debate has concluded and is being evaluated by the AI Judge. This may take a few minutes.
+              </p>
+            </div>
+          )}
+
           {/* Compose */}
           {debate!.status === "active" && (
             <div>
@@ -445,6 +568,15 @@ export default function DebateDetailPage() {
               {showLawyerPanel ? "Hide Lawyer" : "Ask AI Lawyer"}
             </button>
           )}
+
+          {/* Evidence Panel Toggle */}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowEvidencePanel(!showEvidencePanel)}
+            style={{ width: "100%" }}
+          >
+            {showEvidencePanel ? "Hide Evidence" : "📌 Evidence"}
+          </button>
 
           {/* Lawyer Panel */}
           {showLawyerPanel && debate!.status === "active" && (
@@ -515,6 +647,136 @@ export default function DebateDetailPage() {
             </div>
           )}
 
+          {/* Evidence Panel */}
+          {showEvidencePanel && (
+            <div className="card" style={{ padding: "16px" }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
+                Pinned Evidence
+              </div>
+              
+              {/* Existing Evidence */}
+              {debate!.evidence && debate!.evidence.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  {debate!.evidence.map((ev: { id: string; claim: string; source?: string; side: string; pinnedBy: { name: string | null } }) => (
+                    <div
+                      key={ev.id}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: "var(--radius-md)",
+                        background: "var(--muted)",
+                        marginBottom: 8,
+                        borderLeft: `3px solid ${ev.side === "affirmative" ? "var(--notion-accent-sky)" : ev.side === "negative" ? "var(--notion-accent-orange)" : "var(--border)"}`,
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--foreground)", marginBottom: 4 }}>
+                        {ev.claim}
+                      </div>
+                      {ev.source && (
+                        <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4 }}>
+                          Source: {ev.source}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+                        Pinned by {ev.pinnedBy.name || "Unknown"}
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => removeEvidence.mutate({ evidenceId: ev.id })}
+                        disabled={removeEvidence.isPending}
+                        style={{ fontSize: 10, padding: "2px 6px", marginTop: 6 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Evidence Form */}
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                if (!evidenceClaim.trim() || !debateId) return
+                pinEvidence.mutate({
+                  debateId: debateId ?? "",
+                  claim: evidenceClaim.trim(),
+                  source: evidenceSource.trim() || undefined,
+                  side: evidenceSide,
+                })
+              }}>
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 4, display: "block" }}>
+                    Claim or Fact
+                  </label>
+                  <textarea
+                    value={evidenceClaim}
+                    onChange={(e) => setEvidenceClaim(e.target.value)}
+                    placeholder="Enter a claim, fact, or piece of evidence..."
+                    disabled={pinEvidence.isPending}
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                      fontSize: 12,
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 4, display: "block" }}>
+                    Source (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={evidenceSource}
+                    onChange={(e) => setEvidenceSource(e.target.value)}
+                    placeholder="Source URL or citation..."
+                    disabled={pinEvidence.isPending}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                      fontSize: 12,
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 4, display: "block" }}>
+                    Side
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["neutral", "affirmative", "negative"].map((side) => (
+                      <button
+                        key={side}
+                        type="button"
+                        className={`btn btn-sm ${evidenceSide === side ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => setEvidenceSide(side as any)}
+                        disabled={pinEvidence.isPending}
+                        style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
+                      >
+                        {side.charAt(0).toUpperCase() + side.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!evidenceClaim.trim() || pinEvidence.isPending}
+                  className="btn btn-primary btn-sm"
+                  style={{ width: "100%", fontSize: 12 }}
+                >
+                  {pinEvidence.isPending ? "Pinning..." : "Pin Evidence"}
+                </button>
+              </form>
+            </div>
+          )}
+
           {/* Current turn */}
           {activeTurn && (
             <div className="card" style={{ padding: "16px" }}>
@@ -527,6 +789,30 @@ export default function DebateDetailPage() {
               <div style={{ fontSize: 13, color: "var(--foreground)", fontWeight: 500, marginTop: 4, textTransform: "capitalize" }}>
                 {activeTurn.side} speaks
               </div>
+              
+              {/* Timer */}
+              {debate!.status === "active" && (
+                <div style={{
+                  marginTop: 12,
+                  padding: "12px",
+                  background: timeRemaining < 60000 ? "rgba(221,91,0,0.1)" : "rgba(98,174,240,0.1)",
+                  borderRadius: "var(--radius-md)",
+                  border: timeRemaining < 60000 ? "1px solid rgba(221,91,0,0.3)" : "1px solid rgba(98,174,240,0.2)",
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: timeRemaining < 60000 ? "var(--notion-accent-orange)" : "var(--notion-accent-sky)", marginBottom: 4 }}>
+                    Time Remaining
+                  </div>
+                  <div style={{ 
+                    fontSize: 24, 
+                    fontWeight: 600, 
+                    color: timeRemaining < 60000 ? "var(--notion-accent-orange)" : "var(--foreground)",
+                    fontFamily: "monospace",
+                  }}>
+                    {formatTime(timeRemaining)}
+                  </div>
+                </div>
+              )}
+              
               {isUsersTurn && (
                 <div style={{
                   marginTop: 12,
@@ -542,6 +828,79 @@ export default function DebateDetailPage() {
               )}
             </div>
           )}
+
+          {/* Raise Hand Requests */}
+          {debate!.raiseHandRequests && debate!.raiseHandRequests.length > 0 && (
+            <div className="card" style={{ padding: "16px" }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
+                Raise Hand Requests
+              </div>
+              {debate!.raiseHandRequests
+                .filter((req: { status: string }) => req.status === "pending")
+                .map((req: { id: string; requesterId: string; side: string; reason?: string }) => {
+                  const canDecide = req.requesterId !== session?.user?.id
+                  return (
+                    <div 
+                      key={req.id}
+                      style={{
+                        padding: "10px 12px",
+                        background: "var(--muted)",
+                        borderRadius: "var(--radius-md)",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", marginBottom: 4 }}>
+                        {req.side.charAt(0).toUpperCase() + req.side.slice(1)} raises hand
+                      </div>
+                      {req.reason && (
+                        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 8 }}>
+                          "{req.reason}"
+                        </div>
+                      )}
+                      {canDecide && (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => decideRaiseHand.mutate({ requestId: req.id, decision: "granted" })}
+                            disabled={decideRaiseHand.isPending}
+                            style={{ fontSize: 11, padding: "4px 8px" }}
+                          >
+                            Grant
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => decideRaiseHand.mutate({ requestId: req.id, decision: "declined" })}
+                            disabled={decideRaiseHand.isPending}
+                            style={{ fontSize: 11, padding: "4px 8px" }}
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+
+          {/* Connection Status */}
+          <div className="card" style={{ padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: connectionStatus === "connected" ? "var(--notion-accent-teal)" : 
+                          connectionStatus === "reconnecting" ? "var(--notion-accent-orange)" : 
+                          "var(--destructive)",
+              }} />
+              <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+                {connectionStatus === "connected" ? "Connected" :
+                 connectionStatus === "reconnecting" ? "Reconnecting..." :
+                 "Disconnected"}
+              </span>
+            </div>
+          </div>
 
           {/* Debate info */}
           <div className="card" style={{ padding: "16px" }}>

@@ -91,6 +91,15 @@ export const debatesRouter = router({
             },
           },
           judgeReport: true,
+          evidence: {
+            include: {
+              pinnedBy: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          raiseHandRequests: true,
         },
       })
 
@@ -769,10 +778,15 @@ export const debatesRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Request already decided" })
       }
 
-      // Only the other participant can decide
-      const otherParticipant = request.debate.participants.find((p) => p.userId !== userId)
-      if (!otherParticipant || otherParticipant.id !== request.requesterId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only the other participant can decide" })
+      // Only the other participant (not the requester) can decide
+      if (request.requesterId === userId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You cannot decide on your own request" })
+      }
+
+      // Check if user is a participant in the debate
+      const isParticipant = request.debate.participants.some((p) => p.userId === userId)
+      if (!isParticipant) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only participants can decide" })
       }
 
       const updated = await ctx.db.raiseHandRequest.update({

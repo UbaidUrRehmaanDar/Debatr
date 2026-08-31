@@ -167,11 +167,16 @@ export default async function DebatesPage() {
           </div>
           <div className="empty-state-title">No debates yet</div>
           <p className="empty-state-desc">
-            Create a debate by inviting another user. You&apos;ll both take timed turns presenting arguments.
+            Create your first debate by inviting another user. You&apos;ll both take timed turns presenting arguments on a topic of your choice.
           </p>
-          <Link href="/debates/new" className="btn btn-primary">
-            Create first debate
-          </Link>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <Link href="/debates/new" className="btn btn-primary">
+              Create Debate
+            </Link>
+            <Link href="/templates" className="btn btn-secondary">
+              Browse Templates
+            </Link>
+          </div>
         </div>
       )}
     </main>

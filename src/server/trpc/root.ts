@@ -6,6 +6,7 @@ import { exportsRouter } from "@/server/trpc/routers/exports"
 import { bookmarksRouter } from "@/server/trpc/routers/bookmarks"
 import { templatesRouter } from "@/server/trpc/routers/templates"
 import { legalAiRouter } from "@/server/trpc/routers/legal-ai"
+import { evidenceRouter } from "@/server/trpc/routers/evidence"
 
 export const appRouter = router({
   health: publicProcedure.query(() => ({
@@ -35,6 +36,7 @@ export const appRouter = router({
   bookmarks: bookmarksRouter,
   templates: templatesRouter,
   legalAi: legalAiRouter,
+  evidence: evidenceRouter,
 })
 
 export type AppRouter = typeof appRouter
