@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Debatr</title>
+  <link rel="icon" type="image/png" href="debatr-logo.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- Page ambient decorative lines -->
+  <div class="page-ambient">
+    <div class="page-ambient-line"></div>
+    <div class="page-ambient-line"></div>
+    <div class="page-ambient-line"></div>
+    <div class="page-ambient-line"></div>
+    <div class="page-ambient-line"></div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <nav id="topnav">
+    <div class="nav-inner">
+      <button class="nav-logo" data-nav="debates">
+        <img src="debatr-logo.png" alt="Debatr" class="nav-logo-img" />
+        <span class="nav-logo-text">Debatr</span>
+      </button>
+
+      <div class="nav-links" id="navLinks"></div>
+
+      <div class="nav-actions">
+        <button class="nav-search-btn" onclick="openSearch()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <span>Search</span>
+          <kbd><span class="cmd-key">&#x2318;</span>K</kbd>
+        </button>
+
+        <button class="nav-bell-btn" title="Notifications">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="bell-dot"></span>
+        </button>
+
+        <div class="avatar-root" data-avatar-root>
+          <button class="avatar-btn" title="Account">A</button>
+          <div class="avatar-menu" id="avatarMenu" style="display:none;">
+            <div class="avatar-menu-header">
+              <div class="avatar-menu-name">Alex Morgan</div>
+              <div class="avatar-menu-email">alex@debatr.io</div>
+            </div>
+            <div class="avatar-menu-items">
+              <button class="avatar-menu-item" data-nav="profile">Profile</button>
+              <button class="avatar-menu-item" data-nav="settings">Settings</button>
+            </div>
+            <div class="avatar-menu-footer">
+              <button class="avatar-menu-item avatar-menu-logout">Sign Out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page Container -->
+  <main id="pageContainer"></main>
+
+  <!-- Search Modal -->
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+    <div class="search-modal" onclick="event.stopPropagation()">
+      <div class="search-input-row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Search debates, topics, pages..." class="search-input" />
+        <button class="search-close-btn" onclick="closeSearch()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
+      <div class="search-footer">
+        <div class="search-hint"><kbd>&#x21B5;</kbd> Open</div>
+        <div class="search-hint"><kbd>Esc</kbd> Close</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Page Modules -->
+  <script src="pages/sign-in.js"></script>
+  <script src="pages/sign-up.js"></script>
+  <script src="pages/forgot-password.js"></script>
+  <script src="pages/reset-password.js"></script>
+  <script src="pages/verify-email.js"></script>
+  <script src="pages/debates.js"></script>
+  <script src="pages/debate-new.js"></script>
+  <script src="pages/debate-detail.js"></script>
+  <script src="pages/debate-report.js"></script>
+  <script src="pages/debate-spectate.js"></script>
+  <script src="pages/settings.js"></script>
+  <script src="pages/admin.js"></script>
+  <script src="pages/admin-users.js"></script>
+  <script src="pages/analytics.js"></script>
+  <script src="pages/legal-ai.js"></script>
+  <script src="pages/projects.js"></script>
+  <script src="pages/invitations.js"></script>
+  <script src="pages/import.js"></script>
+  <script src="pages/help.js"></script>
+  <script src="pages/privacy.js"></script>
+  <script src="pages/terms.js"></script>
+  <script src="pages/error.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

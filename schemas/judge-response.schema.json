@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/judge-response.schema.json",
+  "title": "Judge Response",
+  "description": "Structured evaluation report from AI Judge for completed debates",
+  "type": "object",
+  "required": ["outcome", "confidence", "verdict", "scores", "strengths", "weaknesses", "fallacies", "conductFindings", "summary"],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["affirmative", "negative", "draw", "inconclusive"],
+      "description": "Final debate outcome"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence level in the outcome decision (0-1)"
+    },
+    "verdict": {
+      "type": "string",
+      "description": "Narrative explanation of the decision"
+    },
+    "scores": {
+      "type": "object",
+      "description": "Per-side scoring on evaluation criteria",
+      "required": ["affirmative", "negative"],
+      "properties": {
+        "affirmative": {
+          "type": "object",
+          "required": ["logicalConsistency", "evidenceQuality", "rebuttalEffectiveness", "argumentStructure", "responsiveness"],
+          "properties": {
+            "logicalConsistency": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Coherence, valid reasoning, absence of contradictions (30% weight)"
+            },
+            "evidenceQuality": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Relevance, support, and correct qualification of evidence (25% weight)"
+            },
+            "rebuttalEffectiveness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Whether meaningful opposing claims were addressed (20% weight)"
+            },
+            "argumentStructure": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Clear claims, reasons, and conclusions (15% weight)"
+            },
+            "responsiveness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Engagement with the opponent's actual position (10% weight)"
+            }
+          }
+        },
+        "negative": {
+          "type": "object",
+          "required": ["logicalConsistency", "evidenceQuality", "rebuttalEffectiveness", "argumentStructure", "responsiveness"],
+          "properties": {
+            "logicalConsistency": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Coherence, valid reasoning, absence of contradictions (30% weight)"
+            },
+            "evidenceQuality": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Relevance, support, and correct qualification of evidence (25% weight)"
+            },
+            "rebuttalEffectiveness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Whether meaningful opposing claims were addressed (20% weight)"
+            },
+            "argumentStructure": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Clear claims, reasons, and conclusions (15% weight)"
+            },
+            "responsiveness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Engagement with the opponent's actual position (10% weight)"
+            }
+          }
+        }
+      }
+    },
+    "strengths": {
+      "type": "object",
+      "description": "Identified strengths for each side",
+      "required": ["affirmative", "negative"],
+      "properties": {
+        "affirmative": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "negative": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "weaknesses": {
+      "type": "object",
+      "description": "Identified weaknesses for each side",
+      "required": ["affirmative", "negative"],
+      "properties": {
+        "affirmative": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "negative": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fallacies": {
+      "type": "array",
+      "description": "Logical fallacies identified in the debate",
+      "items": {
+        "type": "object",
+        "required": ["side", "fallacy", "description"],
+        "properties": {
+          "side": {
+            "type": "string",
+            "enum": ["affirmative", "negative"]
+          },
+          "fallacy": {
+            "type": "string",
+            "description": "Name of the fallacy"
+          },
+          "description": {
+            "type": "string",
+            "description": "Explanation of how the fallacy occurred"
+          }
+        }
+      }
+    },
+    "conductFindings": {
+      "type": "array",
+      "description": "Conduct issues identified during the debate",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Overall summary of the debate and evaluation"
+    }
+  },
+  "additionalProperties": false
+}

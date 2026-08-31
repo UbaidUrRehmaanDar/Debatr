@@ -1,0 +1,398 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// AUTH TABLES (Auth.js)
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  name          String?
+  role          String    @default("user") // "user" | "admin"
+  passwordHash  String    @map("password_hash")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  accounts              Account[]
+  sessions              Session[]
+  invitationsSent       Invitation[]          @relation("InvitationSender")
+  invitationsUsed       Invitation[]          @relation("InvitationUser")
+  debates               DebateParticipant[]
+  messages              Message[]
+  lawyerConversations   LawyerConversation[] @relation("LawyerParticipant")
+  evidence              Evidence[]
+  factChecks            FactCheck[]           @relation("FactChecker")
+  raiseHandRequests     RaiseHandRequest[]
+  raiseHandDecisions    RaiseHandRequest[]    @relation("RaiseHandDecider")
+  moderationEvents      ModerationEvent[]
+  bookmarks             Bookmark[]
+  exports               Export[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// APP TABLES
+// ============================================
+
+model Invitation {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  email       String
+  createdById String    @map("created_by_id")
+  usedById    String?   @map("used_by_id")
+  usedAt      DateTime? @map("used_at")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  createdBy User  @relation("InvitationSender", fields: [createdById], references: [id])
+  usedBy    User? @relation("InvitationUser", fields: [usedById], references: [id])
+
+  @@index([createdById])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("invitations")
+}
+
+model Debate {
+  id                   String    @id @default(cuid())
+  topic                String
+  description          String?
+  status               String    @default("waiting_for_participants")
+  // "draft" | "waiting_for_participants" | "active" | "paused" | "judging" | "completed" | "cancelled"
+
+  // Settings (snapshotted at creation)
+  maxRounds            Int       @map("max_rounds")
+  roundDurationMs      Int       @map("round_duration_ms")
+  maxCharactersPerTurn Int       @map("max_characters_per_turn")
+
+  // Current state
+  currentRound         Int       @default(0) @map("current_round")
+  currentTurnId        String?   @map("current_turn_id")
+  judgeReportId        String?   @map("judge_report_id")
+
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  completedAt          DateTime? @map("completed_at")
+
+  // Relations
+  turns               Turn[]
+  messages            Message[]
+  participants        DebateParticipant[]
+  lawyerConversations LawyerConversation[]
+  judgeReport         JudgeReport?
+  aiUsage             AiUsage[]
+  moderationEvents    ModerationEvent[]
+  raiseHandRequests   RaiseHandRequest[]
+  evidence            Evidence[]
+  factChecks          FactCheck[]
+  exports             Export[]
+  bookmarks           Bookmark[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("debates")
+}
+
+model DebateParticipant {
+  id          String   @id @default(cuid())
+  debateId    String   @map("debate_id")
+  userId      String   @map("user_id")
+  side        String   // "affirmative" | "negative"
+  displayName String   @map("display_name")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([debateId, userId])
+  @@index([debateId])
+  @@index([userId])
+  @@map("debate_participants")
+}
+
+model Turn {
+  id            String    @id @default(cuid())
+  debateId      String    @map("debate_id")
+  roundIndex    Int       @map("round_index")
+  turnIndex     Int       @map("turn_index")
+  side          String    // "affirmative" | "negative"
+  participantId String    @map("participant_id")
+  startTime     DateTime  @map("start_time")
+  endTime       DateTime? @map("end_time")
+  status        String    @default("pending")
+  // "pending" | "active" | "completed" | "timeout"
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  debate   Debate    @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([debateId, status])
+  @@index([debateId])
+  @@map("turns")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  debateId  String   @map("debate_id")
+  turnId    String?  @map("turn_id")
+  senderId  String   @map("sender_id")
+  side      String   // "affirmative" | "negative" | "system"
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  debate     Debate      @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  turn       Turn?       @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  sender     User        @relation(fields: [senderId], references: [id])
+  factChecks FactCheck[]
+  moderationEvents ModerationEvent[]
+
+  @@index([debateId, createdAt])
+  @@index([debateId])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model LawyerConversation {
+  id            String   @id @default(cuid())
+  debateId      String   @map("debate_id")
+  participantId String   @map("participant_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  debate      Debate          @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  participant User            @relation("LawyerParticipant", fields: [participantId], references: [id])
+  requests    LawyerRequest[]
+
+  @@unique([debateId, participantId])
+  @@map("lawyer_conversations")
+}
+
+model LawyerRequest {
+  id                 String   @id @default(cuid())
+  conversationId     String   @map("conversation_id")
+  participantRequest String   @map("participant_request")
+  context            Json     // Debate context provided to AI
+  aiResponse         Json     @map("ai_response") // Structured AI response
+  tokensUsed         Int?     @map("tokens_used")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  conversation LawyerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("lawyer_requests")
+}
+
+model JudgeReport {
+  id              String   @id @default(cuid())
+  debateId        String   @unique @map("debate_id")
+  outcome         String   // "affirmative" | "negative" | "draw" | "inconclusive"
+  confidence      Float
+  verdict         String
+  scores          Json     // { affirmative: {...}, negative: {...} }
+  strengths       Json
+  weaknesses      Json
+  feedback        Json
+  fallacies       Json
+  conductFindings Json     @map("conduct_findings")
+  summary         String
+  tokensUsed      Int?     @map("tokens_used")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  @@map("judge_reports")
+}
+
+model AiUsage {
+  id         String   @id @default(cuid())
+  debateId   String   @map("debate_id")
+  role       String   // "lawyer" | "judge" | "fact_checker"
+  tokensUsed Int      @map("tokens_used")
+  model      String
+  requestId  String?  @map("request_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  @@index([debateId])
+  @@index([createdAt])
+  @@index([role])
+  @@map("ai_usage")
+}
+
+model ModerationEvent {
+  id          String   @id @default(cuid())
+  debateId    String?  @map("debate_id")
+  messageId   String?  @map("message_id")
+  userId      String?  @map("user_id")
+  category    String   // "harassment" | "threat" | "hate" | "spam" | "disruption" | "other"
+  action      String   // "none" | "warning" | "official_warning" | "penalty" | "terminate"
+  explanation String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  debate  Debate?  @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  message Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([debateId])
+  @@map("moderation_events")
+}
+
+model RaiseHandRequest {
+  id          String    @id @default(cuid())
+  debateId    String    @map("debate_id")
+  requesterId String    @map("requester_id")
+  side        String    // "affirmative" | "negative"
+  status      String    @default("pending")
+  // "pending" | "granted" | "declined" | "expired"
+  decidedById String?   @map("decided_by_id")
+  decidedAt   DateTime? @map("decided_at")
+  reason      String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  debate    Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  requester User   @relation(fields: [requesterId], references: [id])
+  decidedBy User?  @relation("RaiseHandDecider", fields: [decidedById], references: [id])
+
+  @@index([debateId, status])
+  @@map("raise_hand_requests")
+}
+
+model Evidence {
+  id         String   @id @default(cuid())
+  debateId   String   @map("debate_id")
+  pinnedById String   @map("pinned_by_id")
+  side       String   @default("neutral")
+  claim      String
+  source     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  pinnedBy User   @relation(fields: [pinnedById], references: [id])
+
+  @@index([debateId])
+  @@map("evidence")
+}
+
+model FactCheck {
+  id          String   @id @default(cuid())
+  debateId    String   @map("debate_id")
+  messageId   String   @map("message_id")
+  checkedById String?  @map("checked_by_id")
+  verdict     String   // "verified" | "disputed" | "unverified" | "mixed"
+  claims      Json     // Array of claim assessments
+  model       String
+  tokensUsed  Int?     @map("tokens_used")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  debate    Debate  @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  checkedBy User?   @relation("FactChecker", fields: [checkedById], references: [id])
+
+  @@index([debateId, messageId])
+  @@map("fact_checks")
+}
+
+model Export {
+  id             String   @id @default(cuid())
+  debateId       String?  @map("debate_id")
+  sourceDebateId String?  @map("source_debate_id")
+  createdById    String   @map("created_by_id")
+  includeLawyerLogs Boolean @default(false) @map("include_lawyer_logs")
+  data           Json
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  debate    Debate? @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([debateId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("exports")
+}
+
+model DebateTemplate {
+  id                   String   @id @default(cuid())
+  name                 String
+  topic                String
+  description          String?
+  category             String   @default("other")
+  // "philosophy" | "politics" | "technology" | "science" | "ethics" | "education" | "economics" | "culture" | "other"
+  maxRounds            Int      @default(4) @map("max_rounds")
+  roundDurationMs      Int      @default(300000) @map("round_duration_ms")
+  maxCharactersPerTurn Int      @default(2000) @map("max_characters_per_turn")
+  isDefault            Boolean  @default(false) @map("is_default")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@map("debate_templates")
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  debateId  String   @map("debate_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, debateId])
+  @@index([userId])
+  @@map("bookmarks")
+}

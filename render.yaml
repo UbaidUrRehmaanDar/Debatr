@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: debatr
+    runtime: node
+    plan: free
+    buildCommand: npm run build:railway
+    startCommand: npm run start:railway
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: debatr-db
+          property: connectionString
+      - key: OPENCODE_API_KEY
+        sync: false
+      - key: OPENCODE_BASE_URL
+        value: https://opencode.ai/zen/v1
+      - key: AI_LAWYER_MODEL
+        value: nemotron-3-ultra-free
+      - key: AI_JUDGE_MODEL
+        value: nemotron-3-ultra-free
+      - key: AI_FACT_CHECKER_MODEL
+        value: ling-3.0-flash-fin-free
+      - key: AI_MAX_TOKENS_PER_REQUEST
+        value: 4096
+      - key: AI_MAX_TOKENS_PER_DEBATE
+        value: 50000
+      - key: AI_REQUEST_TIMEOUT_MS
+        value: 60000
+      - key: AI_MAX_RETRIES
+        value: 3
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: Debatr <onboarding@resend.dev>
+      - key: DEBATE_DEFAULT_ROUNDS
+        value: 4
+      - key: DEBATE_DEFAULT_TURN_MINUTES
+        value: 5
+      - key: DEBATE_DEFAULT_MAX_CHARACTERS
+        value: 2000
+      - key: DEFAULT_INVITATION_CODE
+        sync: false
+      - key: WS_PORT
+        value: $PORT
+      - key: NEXT_PUBLIC_WS_URL
+        description: "Set to your Render service URL (e.g., https://your-app.onrender.com)"
+        sync: false
+
+databases:
+  - name: debatr-db
+    plan: free
+    databaseName: debatr

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://debatr.app/schemas/lawyer-response.schema.json",
+  "title": "Lawyer Response",
+  "description": "Structured response from AI Lawyer for debate coaching",
+  "type": "object",
+  "required": ["advice", "reasoning", "suggestions", "confidence"],
+  "properties": {
+    "advice": {
+      "type": "string",
+      "description": "Brief coaching guidance for the participant"
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "Explanation of why this advice is sound"
+    },
+    "suggestions": {
+      "type": "array",
+      "description": "Tactical suggestions for argument strengthening",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence level in the advice (0-1)"
+    }
+  },
+  "additionalProperties": false
+}
