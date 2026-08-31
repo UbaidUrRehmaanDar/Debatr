@@ -32,9 +32,6 @@ const configSchema = z.object({
   debateDefaultTurnMinutes: z.coerce.number().optional(),
   debateDefaultMaxCharacters: z.coerce.number().optional(),
 
-  // Invitations
-  defaultInvitationCode: z.string().optional(),
-
   // WebSocket
   wsPort: z.coerce.number().optional(),
 })
@@ -59,7 +56,6 @@ function loadConfig() {
     debateDefaultRounds: process.env.DEBATE_DEFAULT_ROUNDS,
     debateDefaultTurnMinutes: process.env.DEBATE_DEFAULT_TURN_MINUTES,
     debateDefaultMaxCharacters: process.env.DEBATE_DEFAULT_MAX_CHARACTERS,
-    defaultInvitationCode: process.env.DEFAULT_INVITATION_CODE,
     wsPort: process.env.WS_PORT,
   }
 

@@ -39,31 +39,6 @@ async function main() {
     console.log('⏭️  Skipping admin user creation (SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD not set)')
   }
 
-  // Only seed invitation code if SEED_INVITATION_CODE is provided
-  const invitationCode = process.env.SEED_INVITATION_CODE
-  if (invitationCode && adminEmail) {
-    const admin = await prisma.user.findUnique({ where: { email: adminEmail } })
-    if (admin) {
-      const expiresAt = new Date()
-      const expiresInDays = parseInt(process.env.SEED_INVITATION_EXPIRES_DAYS || '30', 10)
-      expiresAt.setDate(expiresAt.getDate() + expiresInDays)
-
-      const invitation = await prisma.invitation.upsert({
-        where: { code: invitationCode },
-        update: {},
-        create: {
-          code: invitationCode,
-          email: process.env.SEED_INVITATION_EMAIL || '',
-          createdById: admin.id,
-          expiresAt,
-        },
-      })
-      console.log('✅ Created invitation code:', invitation.code)
-    }
-  } else {
-    console.log('⏭️  Skipping invitation code creation (SEED_INVITATION_CODE not set)')
-  }
-
   console.log('🎉 Seed completed successfully!')
 }
 

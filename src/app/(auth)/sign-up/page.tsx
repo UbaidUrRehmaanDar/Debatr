@@ -39,13 +39,11 @@ async function SignUpForm({ searchParams }: { searchParams: Promise<{ error?: st
   const { error } = await searchParams
 
   const errorMessage =
-    error === "invalid-invite"
-      ? "Invalid or expired invitation code."
-      : error === "email-exists"
-        ? "An account with this email already exists."
-        : error === "invalid-input"
-          ? "Please check your input and try again."
-          : null
+    error === "email-exists"
+      ? "An account with this email already exists."
+      : error === "invalid-input"
+        ? "Please check your input and try again."
+        : null
 
   return (
     <form action={signUpAction} className="auth-form">
@@ -87,19 +85,6 @@ async function SignUpForm({ searchParams }: { searchParams: Promise<{ error?: st
           minLength={8}
           autoComplete="new-password"
           placeholder="Create a strong password"
-        />
-      </div>
-
-      <div className="form-group">
-        <label className="form-label" htmlFor="invitationCode">Invite Code</label>
-        <input
-          className="form-input"
-          id="invitationCode"
-          name="invitationCode"
-          type="text"
-          required
-          placeholder="XXXX-XXXX"
-          style={{ fontFamily: "'SF Mono','Fira Code',monospace", letterSpacing: "2px", textTransform: "uppercase" }}
         />
       </div>
 

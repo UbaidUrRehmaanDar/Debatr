@@ -1,7 +1,6 @@
 import { router, publicProcedure, protectedProcedure } from "@/server/trpc/context"
 import { debatesRouter } from "@/server/trpc/routers/debates"
 import { adminRouter } from "@/server/trpc/routers/admin"
-import { invitationsRouter } from "@/server/trpc/routers/invitations"
 import { exportsRouter } from "@/server/trpc/routers/exports"
 import { bookmarksRouter } from "@/server/trpc/routers/bookmarks"
 import { templatesRouter } from "@/server/trpc/routers/templates"
@@ -31,7 +30,6 @@ export const appRouter = router({
 
   debates: debatesRouter,
   admin: adminRouter,
-  invitations: invitationsRouter,
   exports: exportsRouter,
   bookmarks: bookmarksRouter,
   templates: templatesRouter,

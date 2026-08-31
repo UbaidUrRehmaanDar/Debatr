@@ -12,7 +12,6 @@ const signUpSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters"),
   email: z.string().trim().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  invitationCode: z.string().trim().min(1, "Invitation code is required"),
 })
 
 export async function signUpAction(formData: FormData) {
@@ -20,7 +19,6 @@ export async function signUpAction(formData: FormData) {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
-    invitationCode: String(formData.get("invitationCode") ?? ""),
   }
 
   const parsed = signUpSchema.safeParse(raw)
@@ -28,23 +26,7 @@ export async function signUpAction(formData: FormData) {
     redirect("/sign-up?error=invalid-input")
   }
 
-  const { name, email, password, invitationCode } = parsed.data
-
-  // Check invitation code
-  const invitation = await prisma.invitation.findFirst({
-    where: {
-      code: invitationCode,
-      usedById: null,
-      expiresAt: { gt: new Date() },
-    },
-  })
-
-  // Skip invitation check in development for easier testing
-  if (!invitation && process.env.NODE_ENV === "development") {
-    console.log("⚠️ Development mode: Skipping invitation check")
-  } else if (!invitation) {
-    redirect("/sign-up?error=invalid-invite")
-  }
+  const { name, email, password } = parsed.data
 
   const existingUser = await prisma.user.findUnique({ where: { email } })
   if (existingUser) {
@@ -61,17 +43,6 @@ export async function signUpAction(formData: FormData) {
       role: "user",
     },
   })
-
-  // Mark invitation as used (if we had one)
-  if (invitation) {
-    await prisma.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        usedById: user.id,
-        usedAt: new Date(),
-      },
-    })
-  }
 
   // Send verification email
   const token = randomBytes(32).toString("hex")

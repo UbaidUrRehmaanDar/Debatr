@@ -7,7 +7,6 @@ const PAGES = [
   { label: "Debates",     href: "/debates"       },
   { label: "New Debate",  href: "/debates/new"   },
   { label: "Settings",    href: "/settings"      },
-  { label: "Invitations", href: "/invitations"   },
 ]
 
 interface SearchModalProps {

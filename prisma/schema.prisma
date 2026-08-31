@@ -25,8 +25,6 @@ model User {
   // Relations
   accounts              Account[]
   sessions              Session[]
-  invitationsSent       Invitation[]          @relation("InvitationSender")
-  invitationsUsed       Invitation[]          @relation("InvitationUser")
   debates               DebateParticipant[]
   messages              Message[]
   lawyerConversations   LawyerConversation[] @relation("LawyerParticipant")
@@ -88,25 +86,6 @@ model VerificationToken {
 // ============================================
 // APP TABLES
 // ============================================
-
-model Invitation {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  email       String
-  createdById String    @map("created_by_id")
-  usedById    String?   @map("used_by_id")
-  usedAt      DateTime? @map("used_at")
-  expiresAt   DateTime  @map("expires_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  createdBy User  @relation("InvitationSender", fields: [createdById], references: [id])
-  usedBy    User? @relation("InvitationUser", fields: [usedById], references: [id])
-
-  @@index([createdById])
-  @@index([email])
-  @@index([expiresAt])
-  @@map("invitations")
-}
 
 model Debate {
   id                   String    @id @default(cuid())
