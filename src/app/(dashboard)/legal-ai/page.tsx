@@ -1,9 +1,6 @@
-import { auth } from "@/server/auth"
 import { LegalAIClient } from "./legal-ai-client"
 
-export default async function LegalAIPage() {
-  const session = await auth()
-
+export default function LegalAIPage() {
   return (
     <main className="page-content page-enter">
       <div className="page-header">

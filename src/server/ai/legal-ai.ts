@@ -43,32 +43,53 @@ export async function queryLegalAI(
   response: LegalAIResponse
   tokensUsed: number
 }> {
-  const provider = new OpenCodeProvider(getEnv().AI_LEGAL_MODEL || "nemotron-3-ultra-free")
-  
-  const systemPrompt = buildLegalSystemPrompt(context)
-  const userMessage = `Legal Question: ${question}`
+  try {
+    const provider = new OpenCodeProvider(getEnv().AI_LEGAL_MODEL || "nemotron-3-ultra-free")
+    
+    const systemPrompt = buildLegalSystemPrompt(context)
+    const userMessage = `Legal Question: ${question}`
 
-  const response = await provider.chat(
-    [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
-    0.3 // Lower temperature for more precise legal analysis
-  )
+    const response = await provider.chat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      0.3 // Lower temperature for more precise legal analysis
+    )
 
-  const tokensUsed = response.usage.total_tokens
-  const responseText = response.choices[0]?.message.content ?? ""
+    const tokensUsed = response.usage.total_tokens
+    const responseText = response.choices[0]?.message.content ?? ""
 
-  const parsed = OpenCodeProvider.extractJSON<LegalAIResponse>(responseText)
-  if (!parsed) {
-    throw new Error("Failed to parse Legal AI response")
-  }
+    if (!responseText) {
+      throw new Error("Empty response from AI provider")
+    }
 
-  const validated = LegalAIResponseSchema.parse(parsed)
+    const parsed = OpenCodeProvider.extractJSON<LegalAIResponse>(responseText)
+    if (!parsed) {
+      // Fallback: try to create a basic response if JSON parsing fails
+      console.warn("Failed to parse JSON, creating fallback response")
+      return {
+        response: {
+          answer: responseText.substring(0, 500),
+          reasoning: "AI response was received but could not be parsed into structured format.",
+          relevantCases: [],
+          statutes: [],
+          confidence: 0.5,
+          disclaimer: "This information is for educational and research purposes only and does not constitute legal advice."
+        },
+        tokensUsed,
+      }
+    }
 
-  return {
-    response: validated,
-    tokensUsed,
+    const validated = LegalAIResponseSchema.parse(parsed)
+
+    return {
+      response: validated,
+      tokensUsed,
+    }
+  } catch (error) {
+    console.error("Legal AI query error:", error)
+    throw new Error(`Legal AI error: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

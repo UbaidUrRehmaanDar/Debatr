@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Upload, ChevronDown, MessageSquare, Loader2, BookOpen, Scale } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Upload, ChevronDown, MessageSquare, Loader2, BookOpen, Scale, X, Sparkles } from "lucide-react"
 import { api } from "@/lib/trpc-client"
 
 const ScaleIcon = () => (
@@ -33,14 +33,17 @@ interface Message {
     disclaimer: string
   }
   tokensUsed?: number
+  error?: boolean
 }
 
 export function LegalAIClient() {
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [jurisdiction, setJurisdiction] = useState("")
   const [areaOfLaw, setAreaOfLaw] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const legalAiQuery = api.legalAi.query.useMutation()
 
   const suggestions = [
     "What legal precedents support AI regulation?",
@@ -48,9 +51,17 @@ export function LegalAIClient() {
     "Walk me through climate liability law.",
   ]
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, legalAiQuery.isPending])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim() || isLoading) return
+    if (!message.trim() || legalAiQuery.isPending) return
 
     const userMessage: Message = {
       role: "user",
@@ -58,12 +69,12 @@ export function LegalAIClient() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const questionToSend = message
     setMessage("")
-    setIsLoading(true)
 
     try {
-      const result = await api.legalAi.query.mutate({
-        question: userMessage.content,
+      const result = await legalAiQuery.mutateAsync({
+        question: questionToSend,
         jurisdiction: jurisdiction || undefined,
         areaOfLaw: areaOfLaw || undefined,
       })
@@ -81,10 +92,9 @@ export function LegalAIClient() {
       const errorMessage: Message = {
         role: "assistant",
         content: "I apologize, but I encountered an error processing your legal query. Please try again.",
+        error: true,
       }
       setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -92,14 +102,36 @@ export function LegalAIClient() {
     setMessage(question)
   }
 
+  const resetChat = () => {
+    setMessages([])
+    setMessage("")
+  }
+
   if (messages.length > 0) {
     return (
       <div className="legal-ai-chat">
+        <div className="chat-header">
+          <button onClick={resetChat} className="back-btn">
+            <ChevronDown size={16} style={{ transform: "rotate(90deg)" }} />
+            <span>New Chat</span>
+          </button>
+          <div className="chat-header-title">Legal AI Assistant</div>
+          <div className="chat-header-spacer" />
+        </div>
+        
         <div className="chat-messages">
           {messages.map((msg, index) => (
-            <div key={index} className={`chat-message ${msg.role}`}>
+            <div key={index} className={`chat-message ${msg.role} ${msg.error ? 'error' : ''}`}>
               <div className="message-avatar">
-                {msg.role === "assistant" ? <ScaleIcon /> : <div className="user-avatar">U</div>}
+                {msg.role === "assistant" ? (
+                  msg.error ? (
+                    <X size={18} />
+                  ) : (
+                    <ScaleIcon />
+                  )
+                ) : (
+                  <div className="user-avatar">U</div>
+                )}
               </div>
               <div className="message-content">
                 <div className="message-text">{msg.content}</div>
@@ -107,13 +139,19 @@ export function LegalAIClient() {
                   <div className="legal-response">
                     {msg.response.reasoning && (
                       <div className="legal-section">
-                        <h4>Legal Reasoning</h4>
+                        <h4>
+                          <Sparkles size={12} />
+                          Legal Reasoning
+                        </h4>
                         <p>{msg.response.reasoning}</p>
                       </div>
                     )}
                     {msg.response.relevantCases && msg.response.relevantCases.length > 0 && (
                       <div className="legal-section">
-                        <h4>Relevant Cases</h4>
+                        <h4>
+                          <BookOpen size={12} />
+                          Relevant Cases
+                        </h4>
                         {msg.response.relevantCases.map((case_, idx) => (
                           <div key={idx} className="legal-case">
                             <div className="case-header">
@@ -150,8 +188,8 @@ export function LegalAIClient() {
               </div>
             </div>
           ))}
-          {isLoading && (
-            <div className="chat-message assistant">
+          {legalAiQuery.isPending && (
+            <div className="chat-message assistant loading">
               <div className="message-avatar">
                 <ScaleIcon />
               </div>
@@ -163,7 +201,9 @@ export function LegalAIClient() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
+        
         <form onSubmit={handleSubmit} className="chat-input-form">
           <div className="chat-input-box">
             <textarea
@@ -172,14 +212,14 @@ export function LegalAIClient() {
               placeholder="Ask a legal question…"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              disabled={isLoading}
+              disabled={legalAiQuery.isPending}
             />
             <button
               type="submit"
               className="chat-send-btn"
-              disabled={!message.trim() || isLoading}
+              disabled={!message.trim() || legalAiQuery.isPending}
             >
-              {isLoading ? <Loader2 size={14} className="spinner" /> : <SendIcon />}
+              {legalAiQuery.isPending ? <Loader2 size={14} className="spinner" /> : <SendIcon />}
             </button>
           </div>
         </form>
@@ -193,6 +233,7 @@ export function LegalAIClient() {
         <div className="lawyer-avatar">
           <ScaleIcon />
         </div>
+        <h1 className="lawyer-heading">Legal AI Assistant</h1>
         <p className="lawyer-subheading">
           Ask me anything about law — case precedents, statutory frameworks, or debate arguments.
         </p>
@@ -227,34 +268,21 @@ export function LegalAIClient() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="chat-input-box" style={{ width: "100%", maxWidth: 680 }}>
-          <div style={{ padding: "12px 14px 0" }}>
+        <form onSubmit={handleSubmit} className="chat-input-form" style={{ width: "100%", maxWidth: 680 }}>
+          <div className="chat-input-box">
             <textarea
               className="chat-textarea"
               rows={1}
               placeholder="Ask anything about law…"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              disabled={isLoading}
             />
-          </div>
-          <div className="chat-toolbar">
-            <div className="chat-toolbar-left">
-              <button className="chat-attach-btn" type="button">
-                <Upload size={16} strokeWidth={1.5} />
-              </button>
-              <button className="chat-context-btn" type="button">
-                <MessageSquare size={13} strokeWidth={1.5} style={{ marginRight: 5 }} />
-                Context
-                <ChevronDown size={10} strokeWidth={1.75} />
-              </button>
-            </div>
             <button
               className="chat-send-btn"
               type="submit"
-              disabled={!message.trim() || isLoading}
+              disabled={!message.trim() || legalAiQuery.isPending}
             >
-              {isLoading ? <Loader2 size={14} className="spinner" /> : <SendIcon />}
+              {legalAiQuery.isPending ? <Loader2 size={14} className="spinner" /> : <SendIcon />}
             </button>
           </div>
         </form>
