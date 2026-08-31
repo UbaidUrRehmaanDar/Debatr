@@ -26,6 +26,7 @@ const envSchema = z.object({
   AI_LAWYER_MODEL: z.string().default("nemotron-3-ultra-free"),
   AI_JUDGE_MODEL: z.string().default("nemotron-3-ultra-free"),
   AI_FACT_CHECKER_MODEL: z.string().default("ling-3.0-flash-fin-free"),
+  AI_LEGAL_MODEL: z.string().default("nemotron-3-ultra-free"),
 
   // AI Budget and limits
   AI_MAX_TOKENS_PER_REQUEST: z.coerce.number().default(8192),
@@ -62,6 +63,7 @@ export function getEnv(): Env {
     AI_LAWYER_MODEL: process.env.AI_LAWYER_MODEL,
     AI_JUDGE_MODEL: process.env.AI_JUDGE_MODEL,
     AI_FACT_CHECKER_MODEL: process.env.AI_FACT_CHECKER_MODEL,
+    AI_LEGAL_MODEL: process.env.AI_LEGAL_MODEL,
     AI_MAX_TOKENS_PER_REQUEST: process.env.AI_MAX_TOKENS_PER_REQUEST,
     AI_MAX_TOKENS_PER_DEBATE: process.env.AI_MAX_TOKENS_PER_DEBATE,
     AI_REQUEST_TIMEOUT_MS: process.env.AI_REQUEST_TIMEOUT_MS,

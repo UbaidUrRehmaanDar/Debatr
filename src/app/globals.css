@@ -1638,6 +1638,229 @@ table {
   line-height: 1.5;
 }
 
+/* Legal AI Chat Interface */
+.legal-ai-chat {
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg) 40px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.chat-message {
+  display: flex;
+  gap: var(--space-md);
+  max-width: 800px;
+}
+
+.chat-message.user {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--notion-accent-purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--notion-accent-purple-deep);
+}
+
+.message-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.message-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+}
+
+.legal-response {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.legal-section h4 {
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+  margin: 0 0 var(--space-xs) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.legal-section p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.legal-case {
+  padding: var(--space-sm);
+  background: var(--background);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-xs);
+}
+
+.case-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xxs);
+}
+
+.case-name {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+}
+
+.case-year {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-left: auto;
+}
+
+.case-citation {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: monospace;
+  margin-bottom: var(--space-xxs);
+}
+
+.case-relevance {
+  font-size: 12px;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.legal-statute {
+  padding: var(--space-sm);
+  background: var(--background);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-xs);
+}
+
+.statute-name {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+  margin-bottom: var(--space-xxs);
+}
+
+.statute-citation {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: monospace;
+  margin-bottom: var(--space-xxs);
+}
+
+.statute-relevance {
+  font-size: 12px;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.legal-disclaimer {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+
+.token-usage {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  text-align: right;
+  margin-top: var(--space-xs);
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.chat-input-form {
+  padding: var(--space-lg) 40px;
+  border-top: 1px solid var(--border);
+  background: var(--background);
+}
+
+.legal-context-options {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  width: 100%;
+  max-width: 680px;
+}
+
+.context-input {
+  flex: 1;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--input-background);
+  padding: 0 var(--space-sm);
+  font-size: 13px;
+  color: var(--foreground);
+  transition: border-color 150ms ease;
+}
+
+.context-input:focus {
+  border-color: var(--foreground);
+  outline: none;
+}
+
+.context-input::placeholder {
+  color: var(--notion-ink-faint);
+}
+
 /* ─── Search Modal ──────────────────────────────────────────────────────────── */
 .search-overlay {
   position: fixed;
