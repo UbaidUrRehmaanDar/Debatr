@@ -45,6 +45,12 @@ next-env.d.ts
 # windows junk
 nul
 
+# tool/local dot folders
+.claude/
+.cursor/
+.idea/
+.vscode/
+
 
 # claude local settings
 docs/.claude/settings.local.json
