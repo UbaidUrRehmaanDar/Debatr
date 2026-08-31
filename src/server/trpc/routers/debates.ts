@@ -15,7 +15,7 @@ import {
   emitDebateMessage,
   emitTurnUpdate,
   emitStatusChange,
-} from "@/server/realtime/socket"
+} from "@/server/realtime/ably-emit"
 
 export const debatesRouter = router({
   /**
